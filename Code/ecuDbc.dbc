@@ -1,0 +1,81 @@
+VERSION ""
+
+
+NS_ : 
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: Other ECU
+BO_ 402 ECU_0x192: 8 Other
+ SG_ inf_eng_tra_rdctn_fail_stat : 7|1@0+ (1,0) [0|1] "-"  ECU
+ SG_ inf_eng_trq_tcm_rqst_fail_stat : 6|1@0+ (1,0) [0|1] "-"  ECU
+ SG_ always0_Byte_1_5 : 4|1@0+ (1,0) [0|1] "-"  ECU
+ SG_ inf_trq_crnk_shft : 3|12@0+ (0.5,-848) [-848|1199.5] "Nm"  ECU
+ SG_ inf_aps_pos_pt_validity : 39|1@0+ (1,0) [0|1] "-"  ECU
+ SG_ always0_Byte_5_5 : 36|1@0+ (1,0) [0|1] "-"  ECU
+ SG_ inf_tra_non_reg : 35|12@0+ (0.5,-848) [-848|1199.5] "Nm"  ECU
+ SG_ inf_aps_pos_eff : 55|8@0+ (0.39215686274509803,0) [0|100] "%"  ECU
+
+
+BO_ 401 ECU_0x191: 8 ECU
+ SG_ inf_eng_tra_rdctn_fail_stat : 7|1@0+ (1,0) [0|1] "-"  Other
+ SG_ inf_eng_trq_tcm_rqst_fail_stat : 6|1@0+ (1,0) [0|1] "-"  Other
+ SG_ always0_Byte_1_5 : 4|1@0+ (1,0) [0|1] "-"  Other
+ SG_ inf_trq_crnk_shft : 3|12@0+ (0.5,-848) [-848|1199.5] "Nm"  Other
+ SG_ inf_aps_pos_pt_validity : 39|1@0+ (1,0) [0|1] "-"  Other
+ SG_ always0_Byte_5_5 : 36|1@0+ (1,0) [0|1] "-"  Other
+ SG_ inf_tra_non_reg : 35|12@0+ (0.5,-848) [-848|1199.5] "Nm"  Other
+ SG_ inf_aps_pos_eff : 55|8@0+ (0.39215686274509803,0) [0|100] "%"  Other
+
+
+CM_ BO_ 402 "Engine Torque Status";
+CM_ SG_ 402 inf_eng_tra_rdctn_fail_stat "Engine Torque Reduction Failed";
+CM_ SG_ 402 inf_eng_trq_tcm_rqst_fail_stat "Engine Torque TCM Request Failed";
+CM_ SG_ 402 always0_Byte_1_5 "Engine Actual Steady State Torque Validity";
+CM_ SG_ 402 inf_trq_crnk_shft "Engine actual steady state torque";
+CM_ SG_ 402 inf_aps_pos_pt_validity "Accelerator Effective Position Validity";
+CM_ SG_ 402 always0_Byte_5_5 "Engine Non-Transmission Regulated Steady State Torque Validity";
+CM_ SG_ 402 inf_tra_non_reg "Engine Non-Transmission Regulated Steady State Torque";
+CM_ SG_ 402 inf_aps_pos_eff "Accelerator Effective Position";
+CM_ BO_ 401 "Engine Torque Status";
+CM_ SG_ 401 inf_eng_tra_rdctn_fail_stat "Engine Torque Reduction Failed";
+CM_ SG_ 401 inf_eng_trq_tcm_rqst_fail_stat "Engine Torque TCM Request Failed";
+CM_ SG_ 401 always0_Byte_1_5 "Engine Actual Steady State Torque Validity";
+CM_ SG_ 401 inf_trq_crnk_shft "Engine actual steady state torque";
+CM_ SG_ 401 inf_aps_pos_pt_validity "Accelerator Effective Position Validity";
+CM_ SG_ 401 always0_Byte_5_5 "Engine Non-Transmission Regulated Steady State Torque Validity";
+CM_ SG_ 401 inf_tra_non_reg "Engine Non-Transmission Regulated Steady State Torque";
+CM_ SG_ 401 inf_aps_pos_eff "Accelerator Effective Position";
+
+BA_DEF_  "MultiplexExtEnabled" ENUM  "No","Yes";
+BA_DEF_  "BusType" STRING ;
+BA_DEF_DEF_  "MultiplexExtEnabled" "No";
+BA_DEF_DEF_  "BusType" "CAN";
