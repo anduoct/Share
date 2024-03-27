@@ -1,12 +1,10 @@
 # %%
-import os
-from decimal import Decimal
-from fractions import Fraction
-
-import numpy as np
-import pandas as pd
 import xlwings as xw
-
+import os
+import pandas as pd
+import numpy as np
+from fractions import Fraction
+from decimal import Decimal
 
 # %%
 def is_excel_file(filename):
@@ -29,7 +27,6 @@ def get_true_number(number):
         true_number = Decimal(tmp_number).normalize()
 
     return str(true_number)
-
 
 # %%
 class _xlsCanSig:
@@ -153,7 +150,7 @@ class _xlsCanRxSig(_xlsCanSig):
         return self.__RecParaInvSta
 
     @RecParaInvSta.setter
-    def Max(self, RecParaInvSta):
+    def RecParaInvSta(self, RecParaInvSta):
         self.__RecParaInvSta = RecParaInvSta
 
     @property
@@ -161,7 +158,7 @@ class _xlsCanRxSig(_xlsCanSig):
         return self.__RecInitVal
 
     @RecInitVal.setter
-    def Max(self, RecInitVal):
+    def RecInitVal(self, RecInitVal):
         self.__RecInitVal = RecInitVal
 
     @property
@@ -169,7 +166,7 @@ class _xlsCanRxSig(_xlsCanSig):
         return self.__EcmInReqPara
 
     @EcmInReqPara.setter
-    def Max(self, EcmInReqPara):
+    def EcmInReqPara(self, EcmInReqPara):
         self.__EcmInReqPara = EcmInReqPara
 
     @property
@@ -177,9 +174,8 @@ class _xlsCanRxSig(_xlsCanSig):
         return self.__EcmInReqParaInvSta
 
     @EcmInReqParaInvSta.setter
-    def Max(self, EcmInReqParaInvSta):
+    def EcmInReqParaInvSta(self, EcmInReqParaInvSta):
         self.__EcmInReqParaInvSta = EcmInReqParaInvSta
-
 
 # %%
 class _xlsCanMsg:
@@ -210,7 +206,7 @@ class _xlsCanMsg:
             str(self.MsgDf.loc["Modulation Area"].values[0]).strip().replace(".0", "")
         )
         self.FrameSelFlag = (
-            str(self.MsgDf.loc["Frame Select Area"].values[0]).strip().replace(".0", "")
+            str(self.MsgDf.loc["Frame Select Flag"].values[0]).strip().replace(".0", "")
         )
         self.FrameDesc = (
             str(self.MsgDf.loc["Frame Description"].values[0]).strip().replace(".0", "")
@@ -225,7 +221,7 @@ class _xlsCanMsg:
         sig_df = sig_df.drop([0])
         sig_df = sig_df.reset_index(drop=True)
         sig_header = [
-            i_header.replace("\n", " ") for i_header in sig_df.values.tolist()[0]
+            i_header.replace("\n", " ").strip() for i_header in sig_df.values.tolist()[0]
         ]
         sig_df.columns = sig_header
         sig_df = sig_df.drop([0])
@@ -262,39 +258,37 @@ class _xlsCanRxNormalMsg(_xlsCanMsg):
         super().prase_sig_df(sig_df)
         ori_para = "Default"
         for _, row in self.SigDf.iterrows():
-            if row["Parameter (Padding)"] != "-":
-                if ori_para != row["Parameter (Padding)"]:
-                    if ori_para != "Default":
-                        self.Sigs.append(signal)
-                    ori_para = row["Parameter (Padding)"]
-                    signal = _xlsCanTxSig()
+            if row["Parameter"] != '-':
+                if ori_para != row["Parameter"]:
+                        
+                    ori_para = row["Parameter"]
+                    signal = _xlsCanRxSig()
+                    self.Sigs.append(signal)
                     start_byte = get_true_number(str(row["Start Byte"]).strip())
-                    bit = str(row["Bit"]).strip().replace(".0", "")
+                    bit = str(row["BIT"]).strip().replace(".0", "")
 
                     if bit == "-":
-                        signal.StartBit = (int(start_byte) - 1) * 8
-                        signal.Len = signal.Len + 8
+                        self.Sigs[-1].StartBit = (int(start_byte) - 1) * 8
+                        self.Sigs[-1].Len = self.Sigs[-1].Len + 8
                     else:
-                        signal.StartBit = (int(start_byte) - 1) * 8 + (8 - int(bit[0]))
+                        self.Sigs[-1].StartBit = (int(start_byte) - 1) * 8 + (8 - int(bit[0]))
                         if bit.isdigit():
-                            signal.Len = signal.Len + 1
+                            self.Sigs[-1].Len = self.Sigs[-1].Len + 1
                         else:
-                            signal.Len = signal.Len + eval(bit) + 1
+                            self.Sigs[-1].Len = self.Sigs[-1].Len + eval(bit) + 1
 
                     if ori_para == "always0" or (
                         ori_para.startswith("(") and ori_para.endswith(")")
                     ):
                         if ori_para == "always0":
-                            signal.Para = (
-                                "padding0_" + self.CanID + "_Byte_" + start_byte
-                            )
+                            self.Sigs[-1].Para = "padding0_" + self.CanID + "_Byte_" + start_byte
 
                             if bit[0] != "-":
-                                signal.Para = signal.Para + "_" + bit[0]
+                                self.Sigs[-1].Para = self.Sigs[-1].Para + "_" + bit[0]
 
                         elif ori_para.startswith("(") and ori_para.endswith(")"):
                             para_name = ori_para[1:-1]
-                            signal.Para = (
+                            self.Sigs[-1].Para = (
                                 "padding"
                                 + para_name
                                 + "_"
@@ -304,49 +298,50 @@ class _xlsCanRxNormalMsg(_xlsCanMsg):
                             )
 
                             if bit[0] != "-":
-                                signal.Para = signal.Para + "_" + bit[0]
+                                self.Sigs[-1].Para = self.Sigs[-1].Para + "_" + bit[0]
 
-                        signal.LSB = (
+                        self.Sigs[-1].LSB = (
                             "1"
                             if str(row["LSB"]).strip() == "-"
                             else get_true_number(str(row["LSB"]).strip())
                         )
-                        signal.Offset = (
+                        self.Sigs[-1].Offset = (
                             "0"
                             if str(row["Offset"]).strip() == "-"
                             else get_true_number(str(row["Offset"]).strip())
                         )
-                        signal.Min = (
+                        self.Sigs[-1].Min = (
                             str(int(para_name, 16))
                             if str(row["Min"]).strip() == "-"
                             else get_true_number(str(row["Min"]).strip())
                         )
-                        signal.Max = (
+                        self.Sigs[-1].Max = (
                             str(int(para_name, 16))
                             if str(row["Max"]).strip() == "-"
                             else get_true_number(str(row["Max"]).strip())
                         )
                     else:
-                        signal.Para = row["Parameter (Padding)"]
-                        signal.LSB = get_true_number(str(row["LSB"]).strip())
-                        signal.Offset = get_true_number(str(row["Offset"]).strip())
-                        signal.Min = get_true_number(str(row["Min"]).strip())
-                        signal.Max = get_true_number(str(row["Max"]).strip())
+                        self.Sigs[-1].Para = row["Parameter"]
+                        self.Sigs[-1].LSB = get_true_number(str(row["LSB"]).strip())
+                        self.Sigs[-1].Offset = get_true_number(str(row["Offset"]).strip())
+                        self.Sigs[-1].Min = get_true_number(str(row["Min"]).strip())
+                        self.Sigs[-1].Max = get_true_number(str(row["Max"]).strip())
 
-                    signal.Desc = row["Description"]
-                    signal.Unit = row["Unit"]
-                    signal.InvSta = row["Invalid Status"]
-                    signal.ErrIndVal = row["Error Indicator Value"]
+                    self.Sigs[-1].Desc = row["Description"]
+                    self.Sigs[-1].Unit = row["Unit"]
+                    self.Sigs[-1].InvSta = row["Invalid Status"]
+                    self.Sigs[-1].ErrIndVal = row["Error Indicator Value (Receive Default Value)"]
+                    self.Sigs[-1].RecParaInvSta = row["Receive Parameter Invalid Status"]
                 else:
-                    bit = str(row["Bit"]).strip().replace(".0", "")
+                    bit = str(row["BIT"]).strip().replace(".0", "")
 
                     if bit == "-":
-                        signal.Len = signal.Len + 8
+                        self.Sigs[-1].Len = self.Sigs[-1].Len + 8
                     else:
                         if bit.isdigit():
-                            signal.Len = signal.Len + 1
+                            self.Sigs[-1].Len = self.Sigs[-1].Len + 1
                         else:
-                            signal.Len = signal.Len + eval(bit) + 1
+                            self.Sigs[-1].Len = self.Sigs[-1].Len + eval(bit) + 1
             else:
                 continue
 
@@ -369,89 +364,91 @@ class _xlsCanTxNormalMsg(_xlsCanMsg):
         super().prase_sig_df(sig_df)
         ori_para = "Default"
         for _, row in self.SigDf.iterrows():
-            if ori_para != row["Parameter (Padding)"]:
-                if ori_para != "Default":
+            if row["Parameter (Padding)"] != '-':
+                if ori_para != row["Parameter (Padding)"]:
+                        
+                    ori_para = row["Parameter (Padding)"]
+                    signal = _xlsCanTxSig()
                     self.Sigs.append(signal)
-                ori_para = row["Parameter (Padding)"]
-                signal = _xlsCanTxSig()
-                start_byte = get_true_number(str(row["Start Byte"]).strip())
-                bit = str(row["Bit"]).strip().replace(".0", "")
+                    start_byte = get_true_number(str(row["Start Byte"]).strip())
+                    bit = str(row["Bit"]).strip().replace(".0", "")
 
-                if bit == "-":
-                    signal.StartBit = (int(start_byte) - 1) * 8
-                    signal.Len = signal.Len + 8
-                else:
-                    signal.StartBit = (int(start_byte) - 1) * 8 + (8 - int(bit[0]))
-                    if bit.isdigit():
-                        signal.Len = signal.Len + 1
+                    if bit == "-":
+                        self.Sigs[-1].StartBit = (int(start_byte) - 1) * 8
+                        self.Sigs[-1].Len = self.Sigs[-1].Len + 8
                     else:
-                        signal.Len = signal.Len + eval(bit) + 1
+                        self.Sigs[-1].StartBit = (int(start_byte) - 1) * 8 + (8 - int(bit[0]))
+                        if bit.isdigit():
+                            self.Sigs[-1].Len = self.Sigs[-1].Len + 1
+                        else:
+                            self.Sigs[-1].Len = self.Sigs[-1].Len + eval(bit) + 1
 
-                if ori_para == "always0" or (
-                    ori_para.startswith("(") and ori_para.endswith(")")
-                ):
-                    if ori_para == "always0":
-                        signal.Para = "padding0_" + self.CanID + "_Byte_" + start_byte
+                    if ori_para == "always0" or (
+                        ori_para.startswith("(") and ori_para.endswith(")")
+                    ):
+                        if ori_para == "always0":
+                            self.Sigs[-1].Para = "padding0_" + self.CanID + "_Byte_" + start_byte
 
-                        if bit[0] != "-":
-                            signal.Para = signal.Para + "_" + bit[0]
+                            if bit[0] != "-":
+                                self.Sigs[-1].Para = self.Sigs[-1].Para + "_" + bit[0]
 
-                    elif ori_para.startswith("(") and ori_para.endswith(")"):
-                        para_name = ori_para[1:-1]
-                        signal.Para = (
-                            "padding"
-                            + para_name
-                            + "_"
-                            + self.CanID
-                            + "_Byte_"
-                            + start_byte
+                        elif ori_para.startswith("(") and ori_para.endswith(")"):
+                            para_name = ori_para[1:-1]
+                            self.Sigs[-1].Para = (
+                                "padding"
+                                + para_name
+                                + "_"
+                                + self.CanID
+                                + "_Byte_"
+                                + start_byte
+                            )
+
+                            if bit[0] != "-":
+                                self.Sigs[-1].Para = self.Sigs[-1].Para + "_" + bit[0]
+
+                        self.Sigs[-1].LSB = (
+                            "1"
+                            if str(row["LSB"]).strip() == "-"
+                            else get_true_number(str(row["LSB"]).strip())
                         )
-
-                        if bit[0] != "-":
-                            signal.Para = signal.Para + "_" + bit[0]
-
-                    signal.LSB = (
-                        "1"
-                        if str(row["LSB"]).strip() == "-"
-                        else get_true_number(str(row["LSB"]).strip())
-                    )
-                    signal.Offset = (
-                        "0"
-                        if str(row["Offset"]).strip() == "-"
-                        else get_true_number(str(row["Offset"]).strip())
-                    )
-                    signal.Min = (
-                        str(int(para_name, 16))
-                        if str(row["Min"]).strip() == "-"
-                        else get_true_number(str(row["Min"]).strip())
-                    )
-                    signal.Max = (
-                        str(int(para_name, 16))
-                        if str(row["Max"]).strip() == "-"
-                        else get_true_number(str(row["Max"]).strip())
-                    )
-                else:
-                    signal.Para = row["Parameter (Padding)"]
-                    signal.LSB = get_true_number(str(row["LSB"]).strip())
-                    signal.Offset = get_true_number(str(row["Offset"]).strip())
-                    signal.Min = get_true_number(str(row["Min"]).strip())
-                    signal.Max = get_true_number(str(row["Max"]).strip())
-
-                signal.Desc = row["Description"]
-                signal.Unit = row["Unit"]
-                signal.InvSta = row["Invalid Status"]
-                signal.ErrIndVal = row["Error Indicator Value"]
-            else:
-                bit = str(row["Bit"]).strip().replace(".0", "")
-
-                if bit == "-":
-                    signal.Len = signal.Len + 8
-                else:
-                    if bit.isdigit():
-                        signal.Len = signal.Len + 1
+                        self.Sigs[-1].Offset = (
+                            "0"
+                            if str(row["Offset"]).strip() == "-"
+                            else get_true_number(str(row["Offset"]).strip())
+                        )
+                        self.Sigs[-1].Min = (
+                            str(int(para_name, 16))
+                            if str(row["Min"]).strip() == "-"
+                            else get_true_number(str(row["Min"]).strip())
+                        )
+                        self.Sigs[-1].Max = (
+                            str(int(para_name, 16))
+                            if str(row["Max"]).strip() == "-"
+                            else get_true_number(str(row["Max"]).strip())
+                        )
                     else:
-                        signal.Len = signal.Len + eval(bit) + 1
+                        self.Sigs[-1].Para = row["Parameter (Padding)"]
+                        self.Sigs[-1].LSB = get_true_number(str(row["LSB"]).strip())
+                        self.Sigs[-1].Offset = get_true_number(str(row["Offset"]).strip())
+                        self.Sigs[-1].Min = get_true_number(str(row["Min"]).strip())
+                        self.Sigs[-1].Max = get_true_number(str(row["Max"]).strip())
 
+                    self.Sigs[-1].Desc = row["Description"]
+                    self.Sigs[-1].Unit = row["Unit"]
+                    self.Sigs[-1].InvSta = row["Invalid Status"]
+                    self.Sigs[-1].ErrIndVal = row["Error Indicator Value"]
+                else:
+                    bit = str(row["Bit"]).strip().replace(".0", "")
+
+                    if bit == "-":
+                        self.Sigs[-1].Len = self.Sigs[-1].Len + 8
+                    else:
+                        if bit.isdigit():
+                            self.Sigs[-1].Len = self.Sigs[-1].Len + 1
+                        else:
+                            self.Sigs[-1].Len = self.Sigs[-1].Len + eval(bit) + 1
+            else:
+                continue
 
 # %%
 class xlsDatabase:
@@ -470,7 +467,9 @@ class xlsDatabase:
         sig_header_row = b_col_data.index(sig_header) + 1
 
         xls_end_list = [
-            i_end for i_end in b_col_data if xls_end.lower() in str(i_end).lower()
+            i_end
+            for i_end in b_col_data
+            if xls_end.lower() in str(i_end).lower()
         ]
         if len(xls_end_list) != 1:
             raise ValueError(f"Sheet Contains Multi Notes, Please Check.")
@@ -552,7 +551,6 @@ class xlsDatabase:
         self.ExcelFile = xls_filename
         self.CanType = can_type
         self.load_excel()
-
 
 # %%
 class ecuDbc:
@@ -660,11 +658,51 @@ class ecuDbc:
                 + self.Property
             )
 
-
 # %%
 xlsDB = xlsDatabase()
-xlsDB.load("test.xlsx", "ISOCAN")
+xlsDB.load('test.xlsx', 'ISOCAN')
 
 dbc = ecuDbc()
 dbc.load(xlsDB)
 dbc.generate_dbc()
+
+# %%
+a = xlsDB.RxNormal[0].SigDf
+
+# %%
+a  = [1,2]
+print(a[-1])
+
+# %%
+class a_c:
+    def __init__(self) -> None:
+        self.__a = 0
+
+    @property
+    def a(self):
+        return self.__a
+    
+    @a.setter
+    def a(self, a):
+        self.__a = a
+
+# %%
+class b_c(a_c):
+    def __init__(self) -> None:
+        super().__init__()
+        self.__b = 2
+
+    @property
+    def b(self):
+        return self.__b
+    
+    @b.setter
+    def b(self, b):
+        self.__b = b
+
+# %%
+testa = b_c()
+print(testa.b)
+testa.b = 3
+
+
