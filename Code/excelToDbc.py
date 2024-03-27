@@ -42,6 +42,7 @@ class _xlsCanSig:
         self.__Max = 0
         self.__InvSta = ""
         self.__ErrIndVal = ""
+        self.__IsConst = ""
 
     @property
     def StartBit(self):
@@ -130,6 +131,14 @@ class _xlsCanSig:
     @ErrIndVal.setter
     def ErrIndVal(self, ErrIndVal):
         self.__ErrIndVal = ErrIndVal
+
+    @property
+    def IsConst(self):
+        return self.__IsConst
+
+    @IsConst.setter
+    def IsConst(self, IsConst):
+        self.__IsConst = IsConst
 
 
 class _xlsCanTxSig(_xlsCanSig):
@@ -320,18 +329,20 @@ class _xlsCanRxNormalMsg(_xlsCanMsg):
                             if str(row["Max"]).strip() == "-"
                             else get_true_number(str(row["Max"]).strip())
                         )
+                        self.Sigs[-1].IsConst = True
                     else:
                         self.Sigs[-1].Para = row["Parameter"]
-                        self.Sigs[-1].LSB = get_true_number(str(row["LSB"]).strip())
+                        self.Sigs[-1].LSB = str(row["LSB"]).strip()
                         self.Sigs[-1].Offset = get_true_number(str(row["Offset"]).strip())
                         self.Sigs[-1].Min = get_true_number(str(row["Min"]).strip())
                         self.Sigs[-1].Max = get_true_number(str(row["Max"]).strip())
+                        self.Sigs[-1].IsConst = False
 
                     self.Sigs[-1].Desc = row["Description"]
                     self.Sigs[-1].Unit = row["Unit"]
                     self.Sigs[-1].InvSta = row["Invalid Status"]
                     self.Sigs[-1].ErrIndVal = row["Error Indicator Value (Receive Default Value)"]
-                    self.Sigs[-1].RecParaInvSta = row["Receive Parameter Invalid Status"]
+                    self.Sigs[-1].RecParaInvSta = row["Receive Parameter  Invalid Status"]
                 else:
                     bit = str(row["BIT"]).strip().replace(".0", "")
 
@@ -426,12 +437,14 @@ class _xlsCanTxNormalMsg(_xlsCanMsg):
                             if str(row["Max"]).strip() == "-"
                             else get_true_number(str(row["Max"]).strip())
                         )
+                        self.Sigs[-1].IsConst = True
                     else:
                         self.Sigs[-1].Para = row["Parameter (Padding)"]
-                        self.Sigs[-1].LSB = get_true_number(str(row["LSB"]).strip())
+                        self.Sigs[-1].LSB = str(row["LSB"]).strip()
                         self.Sigs[-1].Offset = get_true_number(str(row["Offset"]).strip())
                         self.Sigs[-1].Min = get_true_number(str(row["Min"]).strip())
                         self.Sigs[-1].Max = get_true_number(str(row["Max"]).strip())
+                        self.Sigs[-1].IsConst = False
 
                     self.Sigs[-1].Desc = row["Description"]
                     self.Sigs[-1].Unit = row["Unit"]
@@ -553,6 +566,76 @@ class xlsDatabase:
         self.load_excel()
 
 # %%
+class xlsMatlab:
+    def __init__(self) -> None:
+        self.TxNormalIdxHeader = [['No.', 'FrameID', 'Type', 'Description']]
+        self.TxNormalIdx = []
+        self.TxNormalInfoHeader = [['Signal', 'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Output']]
+        self.TxNormalInfo = {}
+
+    def load(self, xls_db):
+        can_type = xls_db.CanType
+        if can_type == "ISOCAN":
+            self.TxNormalIdx, self.TxNormalInfo = self.get_info_content(xls_db.RxNormal, 'TxNormal')
+            #TBD
+        elif can_type == "J1939":
+            pass
+
+    def get_info_content(self, msgs, msg_type):
+        msg_idx = []
+        msg_info = {}
+        for idx, i_msg in enumerate(msgs):
+            msg_idx.append([idx + 1, i_msg.CanID, msg_type, i_msg.FrameDesc])
+            sig_info = []
+            for i_sig in i_msg.Sigs:
+                if i_sig.IsConst == True:
+                    continue
+                else:
+                    i_sig_info = [i_sig.Para, i_sig.LSB, i_sig.Offset, i_sig.Max, i_sig.Min]
+                    if msg_type == 'TxNormal':
+                        i_sig_info = i_sig_info + [i_sig.InvSta] + [i_sig.ErrIndVal] + ['CanTx_' + i_sig.Para]
+                    elif msg_type == 'RxNormal':
+                        pass
+                    sig_info.append(i_sig_info)
+            msg_info[i_msg.CanID] = sig_info
+        return msg_idx, msg_info
+    
+    def generate_xls(self):
+        def set_xls_format(sht):
+            sht.range('A1').expand('right').color = (204, 255, 255)
+            sht.range('A1').expand('right').font.bold = True
+            sht.range('A1').expand('right').font.size = 13
+            sht.range('A1').expand().api.Borders(8).LineStyle = 1
+            sht.range('A1').expand().api.Borders(9).LineStyle = 1
+            sht.range('A1').expand().api.Borders(7).LineStyle = 1
+            sht.range('A1').expand().api.Borders(10).LineStyle = 1
+            sht.range('A1').expand().api.Borders(12).LineStyle = 1
+            sht.range('A1').expand().api.Borders(11).LineStyle = 1
+            sht.range('A1').expand().api.HorizontalAlignment = -4152
+            sht.range('A1').expand().api.VerticalAlignment = -4107
+            sht.autofit()
+
+        with xw.App(visible=True, add_book=False) as app:
+            workbook = app.books.add()
+
+            tx_normal_idx_sht = workbook.sheets.add(after=workbook.sheets.count)
+            tx_normal_idx_sht.name = 'TxNormal'
+            tx_normal_idx_sht.range('A1').value = self.TxNormalIdxHeader + self.TxNormalIdx
+            set_xls_format(tx_normal_idx_sht)
+
+            for i_msg in self.TxNormalInfo.keys():
+                msg_info_sht = workbook.sheets.add(after=workbook.sheets.count)
+                msg_info_sht.name = i_msg 
+                msg_info_sht.range('A1').value = self.TxNormalInfoHeader + self.TxNormalInfo[i_msg]
+                set_xls_format(msg_info_sht)
+            
+            workbook.sheets['Sheet1'].delete()
+            workbook.save('ecuCanFrame.xlsx')
+
+# %%
+[1] + [1,2,3] + [4] + [5]
+
+# %%
 class ecuDbc:
     def __init__(self):
         self.Content = ""
@@ -620,7 +703,7 @@ class ecuDbc:
                         self.calclate_start_bit(i_sig.StartBit),
                         str(i_sig.Len),
                         self.ByteOder,
-                        i_sig.LSB,
+                        get_true_number(i_sig.LSB),
                         i_sig.Offset,
                         i_sig.Min,
                         i_sig.Max,
@@ -666,43 +749,8 @@ dbc = ecuDbc()
 dbc.load(xlsDB)
 dbc.generate_dbc()
 
-# %%
-a = xlsDB.RxNormal[0].SigDf
-
-# %%
-a  = [1,2]
-print(a[-1])
-
-# %%
-class a_c:
-    def __init__(self) -> None:
-        self.__a = 0
-
-    @property
-    def a(self):
-        return self.__a
-    
-    @a.setter
-    def a(self, a):
-        self.__a = a
-
-# %%
-class b_c(a_c):
-    def __init__(self) -> None:
-        super().__init__()
-        self.__b = 2
-
-    @property
-    def b(self):
-        return self.__b
-    
-    @b.setter
-    def b(self, b):
-        self.__b = b
-
-# %%
-testa = b_c()
-print(testa.b)
-testa.b = 3
+mbd = xlsMatlab()
+mbd.load(xlsDB)
+mbd.generate_xls()
 
 
