@@ -576,7 +576,7 @@ class xlsMatlab:
     def load(self, xls_db):
         can_type = xls_db.CanType
         if can_type == "ISOCAN":
-            self.TxNormalIdx, self.TxNormalInfo = self.get_info_content(xls_db.RxNormal, 'TxNormal')
+            self.TxNormalIdx, self.TxNormalInfo = self.get_info_content(xls_db.TxNormal, 'TxNormal')
             #TBD
         elif can_type == "J1939":
             pass
