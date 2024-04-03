@@ -19,12 +19,14 @@ classdef autosarCan < handle
             [obj.current_path, ~, ~] =  fileparts(m_file);
             
             var_nums = 8;
-            var_names = {'Signal', 'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Output'};
-            var_types = {'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'};
-            var_namerules = 'preserve';
-            var_range = 'A2';
+            var_names = ["Signal", "Factor", "Offset", "Max", "Min", "Invalid Status", "Error Indicator Value", "Output"];
+            var_types = ["string", "string", "string", "string", "string", "string", "string", "string"];
+            var_namerules = "preserve";
 
-            obj.xls_opt = spreadsheetImportOptions("NumVariables", var_nums, "VariableNames", var_names, "VariableTypes", var_types, "VariableNamingRule", var_namerules, "DataRange", var_range);
+            obj.xls_opt = spreadsheetImportOptions("NumVariables", 8);
+            obj.xls_opt.;
+            obj.xls_opt.VariableNamingRule = ;
+            obj.xls_opt = setvaropts(obj.xls_opt, "EmptyFieldRule", "auto"  );
 
             obj.asr_mbd = autosarMBD();
         end
@@ -36,9 +38,7 @@ classdef autosarCan < handle
                     id_flag = sheet_strlist(i_str);
                     continue
                 end
-
-                obj.xls_opt.Sheet = sheet_strlist(i_str);
-
+                obj.xls_opt.Sheet = i_str;
                 sht_tbl = readtable(xls_file_path, obj.xls_opt);
                 if strcmp(id_flag, "TxNormal")
                     obj.tx_normal_dict(sheet_strlist(i_str)) = sht_tbl;

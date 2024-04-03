@@ -16,12 +16,11 @@ classdef autosarMBD < handle
             for i_row = 1:height(msg_info)
                 if contains(msg_info.("Invalid Status"){i_row}, 'always FALSE')
                     sig_model_path = ['cantx_0x' msg_name '/sig_' msg_info.Signal{i_row}];
-                    add_block(obj.cantx_noerror, sig_model_path, 'Position', [1325, 270 + i_row * 90,1980, 330 + i_row * 90]);
+                    add_block(obj.cantx_noerror, sig_model_path, 'Position', [1325, 270 + i_row * 90,1510, 330 + i_row * 90]);
 
-                    inport_handle = get_param([sig_model_path '/cantx_phy'], 'LineHandles').Outport;
-                    inport_name = ['cantx_diag_' msg_info.Signal{i_row} '_bsw'];
-                    set_param([sig_model_path '/cantx_phy'], 'Name', inport_name);
-                    set_param(inport_handle, 'Name', inport_name);
+                    inport_handle = get_param([sig_model_path '/cantx_phy'], 'PortHandles').Outport;
+                    set_param([sig_model_path '/cantx_phy'], 'Name', ['cantx_diag_' msg_info.Signal{i_row}]);
+                    set_param(inport_handle, 'Name', ['cantx_diag_' msg_info.Signal{i_row}]);
 
                     mask_values = {msg_info.Offset{i_row}, msg_info.Factor{i_row}};
                     set_param([sig_model_path '/Phy2Raw'], 'MaskValues', mask_values);
@@ -29,14 +28,11 @@ classdef autosarMBD < handle
                     set_param([sig_model_path '/Max'], 'Value', msg_info.Max{i_row});
                     set_param([sig_model_path '/Min'], 'Value', msg_info.Min{i_row});
 
-                    outport_handle = get_param([sig_model_path '/cantx_raw'], 'LineHandles').Inport;
-                    outport_name = ['cantx_diag_' msg_info.Signal{i_row} '_raw'];
-                    set_param([sig_model_path '/cantx_raw'], 'Name', outport_name);
-                    set_param(outport_handle, 'Name', outport_name);
+                    outport_handle = get_param([sig_model_path '/cantx_raw'], 'PortHandles').Outport;
 
                 else
                     sig_model_path = ['cantx_0x' msg_name '/sig_' msg_info.Signal{i_row}];
-                    add_block(obj.cantx_error, sig_model_path, 'Position', [1325, 270 + i_row * 90,1980, 330 + i_row * 90])
+                    add_block(obj.cantx_error, sig_model_path, 'Position', [1325, 270 + i_row * 90,1510, 330 + i_row * 90])
 
                 end
             end
