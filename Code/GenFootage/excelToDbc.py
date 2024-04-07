@@ -42,7 +42,7 @@ class _xlsCanSig:
         self.__Max = 0
         self.__InvSta = ""
         self.__ErrIndVal = ""
-        self.__IsConst = ""
+        self.__IsAnal = False
 
     @property
     def StartBit(self):
@@ -133,12 +133,12 @@ class _xlsCanSig:
         self.__ErrIndVal = ErrIndVal
 
     @property
-    def IsConst(self):
-        return self.__IsConst
+    def IsAnal(self):
+        return self.__IsAnal
 
-    @IsConst.setter
-    def IsConst(self, IsConst):
-        self.__IsConst = IsConst
+    @IsAnal.setter
+    def IsAnal(self, IsAnal):
+        self.__IsAnal = IsAnal
 
 
 class _xlsCanTxSig(_xlsCanSig):
@@ -329,22 +329,22 @@ class _xlsCanRxNormalMsg(_xlsCanMsg):
                             if str(row["Max"]).strip() == "-"
                             else get_true_number(str(row["Max"]).strip())
                         )
-                        self.Sigs[-1].IsConst = True
+                        self.Sigs[-1].IsAnal = True
                     else:
-                        self.Sigs[-1].Para = row["Parameter"]
+                        self.Sigs[-1].Para = row["Parameter"].strip()
                         self.Sigs[-1].LSB = str(row["LSB"]).strip()
                         self.Sigs[-1].Offset = get_true_number(str(row["Offset"]).strip())
                         self.Sigs[-1].Min = get_true_number(str(row["Min"]).strip())
                         self.Sigs[-1].Max = get_true_number(str(row["Max"]).strip())
-                        self.Sigs[-1].IsConst = False
+                        self.Sigs[-1].IsAnal = False
 
-                    self.Sigs[-1].Desc = row["Description"]
-                    self.Sigs[-1].Unit = row["Unit"]
-                    self.Sigs[-1].InvSta = row["Invalid Status"]
-                    self.Sigs[-1].ErrIndVal = row["Error Indicator Value (Receive Default Value)"]
-                    self.Sigs[-1].RecParaInvSta = row["Receive Parameter  Invalid Status"]
+                    self.Sigs[-1].Desc = row["Description"].strip()
+                    self.Sigs[-1].Unit = row["Unit"].strip()
+                    self.Sigs[-1].InvSta = row["Invalid Status"].strip()
+                    self.Sigs[-1].ErrIndVal = row["Error Indicator Value (Receive Default Value)"].strip()
+                    self.Sigs[-1].RecParaInvSta = row["Receive Parameter  Invalid Status"].strip()
                 else:
-                    bit = str(row["BIT"]).strip().replace(".0", "")
+                    bit = str(row["BIT"].strip()).strip().replace(".0", "")
 
                     if bit == "-":
                         self.Sigs[-1].Len = self.Sigs[-1].Len + 8
@@ -375,10 +375,10 @@ class _xlsCanTxNormalMsg(_xlsCanMsg):
         super().prase_sig_df(sig_df)
         ori_para = "Default"
         for _, row in self.SigDf.iterrows():
-            if row["Parameter (Padding)"] != '-':
-                if ori_para != row["Parameter (Padding)"]:
+            if row["Parameter (Padding)"].strip() != '-':
+                if ori_para != row["Parameter (Padding)"].strip():
                         
-                    ori_para = row["Parameter (Padding)"]
+                    ori_para = row["Parameter (Padding)"].strip()
                     signal = _xlsCanTxSig()
                     self.Sigs.append(signal)
                     start_byte = get_true_number(str(row["Start Byte"]).strip())
@@ -437,14 +437,14 @@ class _xlsCanTxNormalMsg(_xlsCanMsg):
                             if str(row["Max"]).strip() == "-"
                             else get_true_number(str(row["Max"]).strip())
                         )
-                        self.Sigs[-1].IsConst = True
+                        self.Sigs[-1].IsAnal = True
                     else:
                         self.Sigs[-1].Para = row["Parameter (Padding)"]
                         self.Sigs[-1].LSB = str(row["LSB"]).strip()
                         self.Sigs[-1].Offset = get_true_number(str(row["Offset"]).strip())
                         self.Sigs[-1].Min = get_true_number(str(row["Min"]).strip())
                         self.Sigs[-1].Max = get_true_number(str(row["Max"]).strip())
-                        self.Sigs[-1].IsConst = False
+                        self.Sigs[-1].IsAnal = False
 
                     self.Sigs[-1].Desc = row["Description"]
                     self.Sigs[-1].Unit = row["Unit"]
@@ -588,7 +588,7 @@ class xlsMatlab:
             msg_idx.append([idx + 1, i_msg.CanID, msg_type, i_msg.FrameDesc])
             sig_info = []
             for i_sig in i_msg.Sigs:
-                if i_sig.IsConst == True:
+                if i_sig.IsAnal == True:
                     continue
                 else:
                     i_sig_info = [i_sig.Para, i_sig.LSB, i_sig.Offset, i_sig.Max, i_sig.Min]
@@ -630,19 +630,16 @@ class xlsMatlab:
                 set_xls_format(msg_info_sht)
             
             workbook.sheets['Sheet1'].delete()
-            workbook.save('ecuCanFrame.xlsx')
-
-# %%
-[1] + [1,2,3] + [4] + [5]
+            workbook.save(r'Output\ecuCanFrame.xlsx')
 
 # %%
 class ecuDbc:
     def __init__(self):
         self.Content = ""
         self.Property = ""
-        with open("dbcHeader.txt", "r") as h_f:
+        with open("Template\dbcHeader.txt", "r") as h_f:
             self.Header = h_f.read()
-        with open("dbcAttribute.txt", "r") as t_f:
+        with open("Template\dbcAttribute.txt", "r") as t_f:
             self.Attribute = t_f.read()
 
     def load(self, xls_db):
@@ -730,7 +727,7 @@ class ecuDbc:
             return str(startbit)
 
     def generate_dbc(self):
-        with open("ecuDbc.dbc", "w") as db_f:
+        with open("Output\ecuDbc.dbc", "w") as db_f:
             db_f.write(
                 self.Header
                 + "\n"
@@ -743,7 +740,7 @@ class ecuDbc:
 
 # %%
 xlsDB = xlsDatabase()
-xlsDB.load('test.xlsx', 'ISOCAN')
+xlsDB.load(r'Input\test.xlsx', 'ISOCAN')
 
 dbc = ecuDbc()
 dbc.load(xlsDB)

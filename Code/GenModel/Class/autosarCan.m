@@ -11,6 +11,8 @@ classdef autosarCan < handle
 
     methods
         function obj = autosarCan()
+            bdclose all
+
             obj.tx_normal_dict = containers.Map();
             obj.rx_normal_dict = containers.Map();
             obj.id_strlist = ["TxNormal"; "RxNormal"];
@@ -48,9 +50,9 @@ classdef autosarCan < handle
             end
         end
 
-        function gen_model(obj)
+        function gen_model(obj, output_path)
             for i_key = keys(obj.tx_normal_dict)
-                obj.asr_mbd.gen_tx_normal_model(i_key{1}, obj.tx_normal_dict(i_key{1}))
+                obj.asr_mbd.gen_tx_normal_model(output_path, i_key{1}, obj.tx_normal_dict(i_key{1}))
             end
         end
 

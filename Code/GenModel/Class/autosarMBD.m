@@ -10,8 +10,9 @@ classdef autosarMBD < handle
             obj.cantx_noerror = 'Lib/cantx_noerror';
         end
 
-        function gen_tx_normal_model(obj, msg_name, msg_info)
-            tx_normal_model = new_system(['cantx_0x' msg_name]);
+        function gen_tx_normal_model(obj, output_path, msg_name, msg_info)
+            tx_normal_model_name = ['cantx_0x' msg_name];
+            tx_normal_model = new_system(tx_normal_model_name);
             open_system(tx_normal_model);
             for i_row = 1:height(msg_info)
                 
@@ -43,8 +44,8 @@ classdef autosarMBD < handle
                 obj.add_subsystem_port(sig_model_path)
             end
 
-            save_system(tx_normal_model);
-
+            save_system(tx_normal_model, [output_path, '\' , tx_normal_model_name, '.slx']);
+            close_system(tx_normal_model)
         end
 
         function modify_port_name(obj, port_dire, mdl_path, ori_name, dst_name)
