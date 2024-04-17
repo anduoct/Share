@@ -1,4 +1,4 @@
-bdclose all
+% bdclose all
 clc
 clear
 
@@ -8,11 +8,14 @@ addpath(current_path)
 addpath([current_path '\Class\'])
 addpath([current_path '\Lib\'])
 
-asr_can = autosarCan();
-asr_can.load([current_path '\..\GenFootage\Output\ecuCanFrame.xlsx']);
-asr_can.gen_model([current_path '\Output\'])
+dd_xls_path = 'D:\00.Me\DL\Share\Code\GenModel\test\test.xlsx';
+in_xls_path = [current_path '\..\GenFootage\Output\ecuCanFrame.xlsx'];
+asr_can = autosarCan(dd_xls_path, [current_path '\Model'], [current_path '\Code']);
+asr_can.load(in_xls_path);
+asr_can.gen_model()
+asr_can.gen_code()
 
-
-bdclose all
-clc
-clear
+% 
+% bdclose all
+% clc
+% clear
