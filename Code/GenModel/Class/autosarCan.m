@@ -43,7 +43,7 @@ classdef autosarCan < handle
             in_var_nums = 8;
             obj.in_xls_opt = spreadsheetImportOptions("NumVariables", in_var_nums, "VariableNames", in_var_names, "VariableTypes", in_var_types, "VariableNamingRule", in_var_namerules, "DataRange", in_var_range, "RowNamesRange", in_row_names_range);
 
-            obj.asr_mbd = autosarMBD();
+            obj.asr_mbd = autosarMBD(obj.dd_sht_tbl);
         end
 
         function load(obj, in_xls_path)
@@ -80,16 +80,20 @@ classdef autosarCan < handle
 
         function gen_model(obj)
             for i_key = keys(obj.tx_normal_dict)
-                obj.asr_mbd.gen_tx_normal_model(obj.output_model_path, i_key{1}, obj.tx_normal_dict(i_key{1}))
+                model_path = obj.output_model_path;
+                model_name = ['cantx_0x' i_key{1}];
+                model_info = obj.tx_normal_dict(i_key{1});
+                per_save_path = [model_path '\' model_name];
+                obj.asr_mbd.gen_tx_normal_model(per_save_path, model_name, model_info)
             end
         end
 
         function gen_code(obj)
             for i_key = keys(obj.tx_normal_dict)
+                model_path = obj.output_model_path;
                 model_name = ['cantx_0x' i_key{1}];
-                model_path = [obj.output_model_path '\cantx_0x' i_key{1}];
-                addpath(model_path);
-                obj.asr_mbd.gen_tx_normal_code(model_name);
+                per_save_path = [model_path '\' model_name];
+                obj.asr_mbd.gen_tx_normal_code(per_save_path, model_name);
             end
         end
 
