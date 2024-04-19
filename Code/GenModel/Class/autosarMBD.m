@@ -84,6 +84,7 @@ classdef autosarMBD < handle
 
             tx_normal_model = new_system(model_name);
             set_param(tx_normal_model, 'Datadictionary',[model_name '.sldd'])
+            set_param(tx_normal_model, 'SetExecutionDomain', 'on','ExecutionDomainType', 'ExportFunction', 'IsExportFunctionModel', 'on');
 
             open_system(tx_normal_model);
 
@@ -92,7 +93,7 @@ classdef autosarMBD < handle
             obj.add_subsystem_port(main_subsystem_path);
 
 
-            set_param(main_subsystem_path, 'FunctionInterfaceSpec', 'Allow arguments (Optimized)', 'RTWFileNameOpts', 'Use subsystem name');
+%             set_param(main_subsystem_path, 'FunctionInterfaceSpec', 'Allow arguments (Optimized)', 'RTWFileNameOpts', 'Use subsystem name');
             set_param(tx_normal_model, 'ZoomFactor', '100');
             save_system(tx_normal_model, [save_path, '\' , model_name, '.slx']);
             close_system(tx_normal_model);
@@ -154,7 +155,7 @@ classdef autosarMBD < handle
                 obj.add_subsystem_port(sig_case_subsystem_path);
 
                 set_param(sig_case_subsystem_path, 'ZoomFactor', '100')
-                set_param(sig_case_subsystem_path, 'RTWSystemCode', 'Nonreusable function', 'RTWFcnNameOpts', 'Use subsystem name')
+                set_param(sig_case_subsystem_path, 'RTWSystemCode', 'Reusable function')
             end
             port_num = length(get_param(subsystem_path, 'PortHandles').Inport);
             obj.main_base_down = obj.main_base_up + obj.main_port_interval*port_num + obj.main_port_offset;
@@ -182,7 +183,7 @@ classdef autosarMBD < handle
                 obj.add_subsystem_port(sig_subsystem_path)
                 % 配置 sig subsystem 属性
                 set_param(sig_subsystem_path, 'ZoomFactor', '100')
-                set_param(sig_subsystem_path, 'RTWSystemCode', 'Nonreusable function', 'RTWFcnNameOpts', 'Use subsystem name')
+                set_param(sig_subsystem_path, 'RTWSystemCode', 'Reusable function', 'TreatAsAtomicUnit', 'on')
             end
         end
 
@@ -199,14 +200,13 @@ classdef autosarMBD < handle
                 obj.modify_port_name('In', subsystem_path, 'cantx_inv_status', error_name)
             end
             % 修改 can in 名
-            obj.modify_port_name('In', subsystem_path, 'cantx_phy', sig_name)
-
-            % mask_values = {sig_case_info.Offset{i_row}, sig_case_info.Factor{i_row}};
-            % set_param([sig_subsystem_path '/Phy2Raw'], 'MaskValues', mask_values);    
-
+            obj.modify_port_name('In', subsystem_path, 'cantx_phy', sig_name)   
             % 修改 can out 名
             outport_name = ['CanTx_' sig_name];
             obj.modify_port_name('Out', subsystem_path, 'cantx_raw', outport_name)
+            % 配置 LSB Offset
+%             mask_values = {sig_case_info.Offset, sig_case_info.Factor};
+%             set_param([subsystem_path '/Phy2Raw'], 'MaskValues', mask_values); 
             % 配置上下限
             set_param([subsystem_path '/Max'], 'Value', sig_case_info.Max);
             set_param([subsystem_path '/Min'], 'Value', sig_case_info.Min);
@@ -304,21 +304,22 @@ classdef autosarMBD < handle
             sig_info = obj.dd_sht_tbl(signal_name,:);
             if strcmp(sig_info.Resolution, "1")
                 sig.DataType = sig_info.Label;
-            elseif strcmp(sig_info.Label, "UB")
-                sig.DataType = strcat("fixdt(0, 8, ", sig_info.numerator , "/" , sig_info.denominator, ")");
-            elseif strcmp(sig_info.Label, "UW")
-                sig.DataType = strcat("fixdt(0, 16, ", sig_info.numerator , "/" , sig_info.denominator, ")");
-            elseif strcmp(sig_info.Label, "UD")
-                sig.DataType = strcat("fixdt(0, 32, ", sig_info.numerator , "/" , sig_info.denominator, ")");
-            elseif strcmp(sig_info.Label, "SB")
-                sig.DataType = strcat("fixdt(0, 8, ", sig_info.numerator , "/" , sig_info.denominator, ")");
-            elseif strcmp(sig_info.Label, "SW")
-                sig.DataType = strcat("fixdt(0, 16, ", sig_info.numerator , "/" , sig_info.denominator, ")");
-            elseif strcmp(sig_info.Label, "SD")
-                sig.DataType = strcat("fixdt(0, 32, ", sig_info.numerator , "/" , sig_info.denominator, ")");
+            else
+                tx_info = obj.cantx_info(signal_name,:);
+                if strcmp(sig_info.Label, "UB")
+                    sig.DataType = strcat("fixdt(0, 8, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
+                elseif strcmp(sig_info.Label, "UW")
+                    sig.DataType = strcat("fixdt(0, 16, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
+                elseif strcmp(sig_info.Label, "UD")
+                    sig.DataType = strcat("fixdt(0, 32, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
+                elseif strcmp(sig_info.Label, "SB")
+                    sig.DataType = strcat("fixdt(0, 8, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
+                elseif strcmp(sig_info.Label, "SW")
+                    sig.DataType = strcat("fixdt(0, 16, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
+                elseif strcmp(sig_info.Label, "SD")
+                    sig.DataType = strcat("fixdt(0, 32, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
+                end
             end
-            disp(sig.DataType)
-            %                 sig.DataType = "uint8";
             addEntry(obj.design_data, signal_name, sig)
         end
 
