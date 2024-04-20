@@ -10,7 +10,7 @@ addpath([current_path '\Class\'])
 addpath([current_path '\Lib\'])
 cd(current_path)
 
-dd_xls_path = 'D:\00.Me\DL\Share\Code\GenModel\test\test.xlsx';
+dd_xls_path = [current_path '\test.xlsx'];
 in_xls_path = [current_path '\..\GenFootage\Output\ecuCanFrame.xlsx'];
 asr_can = autosarCan(dd_xls_path, [current_path '\Model'], [current_path '\Code']);
 asr_can.load(in_xls_path);
