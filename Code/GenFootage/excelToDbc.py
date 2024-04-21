@@ -290,10 +290,12 @@ class _xlsCanRxNormalMsg(_xlsCanMsg):
                         ori_para.startswith("(") and ori_para.endswith(")")
                     ):
                         if ori_para == "always0":
-                            self.Sigs[-1].Para = "padding0_" + self.CanID + "_Byte_" + start_byte
+                            self.Sigs[-1].Para = row["Parameter"] + "_" + self.CanID + "_Byte_" + start_byte
 
                             if bit[0] != "-":
                                 self.Sigs[-1].Para = self.Sigs[-1].Para + "_" + bit[0]
+
+                            self.Sigs[-1].IsAnal = True
 
                         elif ori_para.startswith("(") and ori_para.endswith(")"):
                             para_name = ori_para[1:-1]
@@ -308,6 +310,7 @@ class _xlsCanRxNormalMsg(_xlsCanMsg):
 
                             if bit[0] != "-":
                                 self.Sigs[-1].Para = self.Sigs[-1].Para + "_" + bit[0]
+                            self.Sigs[-1].IsAnal = True
 
                         self.Sigs[-1].LSB = (
                             "1"
@@ -332,7 +335,7 @@ class _xlsCanRxNormalMsg(_xlsCanMsg):
                         self.Sigs[-1].IsAnal = True
                     else:
                         self.Sigs[-1].Para = row["Parameter"].strip()
-                        self.Sigs[-1].LSB = str(row["LSB"]).strip()
+                        self.Sigs[-1].LSB = get_true_number(str(row["LSB"]).strip())
                         self.Sigs[-1].Offset = get_true_number(str(row["Offset"]).strip())
                         self.Sigs[-1].Min = get_true_number(str(row["Min"]).strip())
                         self.Sigs[-1].Max = get_true_number(str(row["Max"]).strip())
@@ -341,10 +344,10 @@ class _xlsCanRxNormalMsg(_xlsCanMsg):
                     self.Sigs[-1].Desc = row["Description"].strip()
                     self.Sigs[-1].Unit = row["Unit"].strip()
                     self.Sigs[-1].InvSta = row["Invalid Status"].strip()
-                    self.Sigs[-1].ErrIndVal = row["Error Indicator Value (Receive Default Value)"].strip()
+                    self.Sigs[-1].ErrIndVal = row["Error Indicator Value （Receive Default Value）"].strip()
                     self.Sigs[-1].RecParaInvSta = row["Receive Parameter  Invalid Status"].strip()
                 else:
-                    bit = str(row["BIT"].strip()).strip().replace(".0", "")
+                    bit = str(row["BIT"]).strip().replace(".0", "")
 
                     if bit == "-":
                         self.Sigs[-1].Len = self.Sigs[-1].Len + 8
@@ -398,10 +401,12 @@ class _xlsCanTxNormalMsg(_xlsCanMsg):
                         ori_para.startswith("(") and ori_para.endswith(")")
                     ):
                         if ori_para == "always0":
-                            self.Sigs[-1].Para = "padding0_" + self.CanID + "_Byte_" + start_byte
+                            self.Sigs[-1].Para = row["Parameter (Padding)"] + "_" + self.CanID + "_Byte_" + start_byte
 
                             if bit[0] != "-":
                                 self.Sigs[-1].Para = self.Sigs[-1].Para + "_" + bit[0]
+
+                            self.Sigs[-1].IsAnal = True
 
                         elif ori_para.startswith("(") and ori_para.endswith(")"):
                             para_name = ori_para[1:-1]
@@ -416,6 +421,7 @@ class _xlsCanTxNormalMsg(_xlsCanMsg):
 
                             if bit[0] != "-":
                                 self.Sigs[-1].Para = self.Sigs[-1].Para + "_" + bit[0]
+                            self.Sigs[-1].IsAnal = True
 
                         self.Sigs[-1].LSB = (
                             "1"
@@ -437,10 +443,9 @@ class _xlsCanTxNormalMsg(_xlsCanMsg):
                             if str(row["Max"]).strip() == "-"
                             else get_true_number(str(row["Max"]).strip())
                         )
-                        self.Sigs[-1].IsAnal = True
                     else:
                         self.Sigs[-1].Para = row["Parameter (Padding)"]
-                        self.Sigs[-1].LSB = str(row["LSB"]).strip()
+                        self.Sigs[-1].LSB = get_true_number(str(row["LSB"]).strip())
                         self.Sigs[-1].Offset = get_true_number(str(row["Offset"]).strip())
                         self.Sigs[-1].Min = get_true_number(str(row["Min"]).strip())
                         self.Sigs[-1].Max = get_true_number(str(row["Max"]).strip())
@@ -573,10 +578,16 @@ class xlsMatlab:
         self.TxNormalInfoHeader = [['Signal', 'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Output']]
         self.TxNormalInfo = {}
 
+        self.RxNormalIdxHeader = [['No.', 'FrameID', 'Type', 'Description']]
+        self.RxNormalIdx = []
+        self.RxNormalInfoHeader = [['Signal', 'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Input', 'Start Bit', 'Length']]
+        self.RxNormalInfo = {}
+
     def load(self, xls_db):
         can_type = xls_db.CanType
         if can_type == "ISOCAN":
             self.TxNormalIdx, self.TxNormalInfo = self.get_info_content(xls_db.TxNormal, 'TxNormal')
+            self.RxNormalIdx, self.RxNormalInfo = self.get_info_content(xls_db.RxNormal, 'RxNormal')
             #TBD
         elif can_type == "J1939":
             pass
@@ -595,7 +606,7 @@ class xlsMatlab:
                     if msg_type == 'TxNormal':
                         i_sig_info = i_sig_info + [i_sig.InvSta] + [i_sig.ErrIndVal] + ['CanTx_' + i_sig.Para]
                     elif msg_type == 'RxNormal':
-                        pass
+                        i_sig_info = i_sig_info + [i_sig.InvSta] + [i_sig.ErrIndVal] + ['CanRx_' + i_sig.Para] + [i_sig.StartBit]+ [i_sig.Len]
                     sig_info.append(i_sig_info)
             msg_info[i_msg.CanID] = sig_info
         return msg_idx, msg_info
@@ -627,6 +638,17 @@ class xlsMatlab:
                 msg_info_sht = workbook.sheets.add(after=workbook.sheets.count)
                 msg_info_sht.name = i_msg 
                 msg_info_sht.range('A1').value = self.TxNormalInfoHeader + self.TxNormalInfo[i_msg]
+                set_xls_format(msg_info_sht)
+
+            rx_normal_idx_sht = workbook.sheets.add(after=workbook.sheets.count)
+            rx_normal_idx_sht.name = 'RxNormal'
+            rx_normal_idx_sht.range('A1').value = self.RxNormalIdxHeader + self.RxNormalIdx
+            set_xls_format(rx_normal_idx_sht)
+
+            for i_msg in self.RxNormalInfo.keys():
+                msg_info_sht = workbook.sheets.add(after=workbook.sheets.count)
+                msg_info_sht.name = i_msg 
+                msg_info_sht.range('A1').value = self.RxNormalInfoHeader + self.RxNormalInfo[i_msg]
                 set_xls_format(msg_info_sht)
             
             workbook.sheets['Sheet1'].delete()
