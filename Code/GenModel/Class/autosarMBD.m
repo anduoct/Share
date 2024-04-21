@@ -63,7 +63,6 @@ classdef autosarMBD < handle
             obj.case_str = '';
         end
 
-
         function gen_tx_normal_model(obj, save_path, model_name, model_info)
             %% 获取 cantx info
             obj.cantx_info = model_info;
@@ -94,7 +93,6 @@ classdef autosarMBD < handle
             save_system(tx_normal_model, [save_path, '\' , model_name, '.slx']);
             close_system(tx_normal_model);
         end
-
 
         function system_hdl = add_tx_normal_subsystem(obj, subsystem_path)
             %% 初始化 case subsystem 位置
@@ -189,7 +187,6 @@ classdef autosarMBD < handle
             set_param(subsystem_path, 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name')
         end
 
-
         function subsystem_hdl = add_tx_sig_subsystem(obj, subsystem_path, subsystem_pos, sig_case_info)
             %% 通过表格判读添加 sig subsystem 类型
             sig_name = sig_case_info.Row{1};
@@ -210,8 +207,10 @@ classdef autosarMBD < handle
             % mask_values = {sig_case_info.Offset, sig_case_info.Factor};
             % set_param([subsystem_path '/Phy2Raw'], 'MaskValues', mask_values); 
             %% 配置上下限
-            set_param([subsystem_path '/Max'], 'Value', sig_case_info.Max);
-            set_param([subsystem_path '/Min'], 'Value', sig_case_info.Min);
+            max_value = strcat("(", sig_case_info.Max, "- (", sig_case_info.Offset, ")) / (", sig_case_info.Factor, ")");
+            min_value = strcat("(", sig_case_info.Min, "- (", sig_case_info.Offset, ")) / (", sig_case_info.Factor, ")");
+            set_param([subsystem_path '/Max'], 'Value', max_value);
+            set_param([subsystem_path '/Min'], 'Value', min_value);
             %% 配置 sig subsystem 缩放大小及代码生成格式
             set_param(subsystem_path, 'ZoomFactor', '100')
             set_param(subsystem_path, 'TreatAsAtomicUnit', 'on', 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name')
@@ -369,9 +368,9 @@ classdef autosarMBD < handle
                     sig.DataType = strcat("fixdt(0, 32, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
                 end
             end
+            sig.Max = str2double(sig_info.("Max（Internal）"));
+            sig.Min = str2double(sig_info.("Min（Internal）"));
             addEntry(obj.design_data, signal_name, sig)
         end
-
     end
-
 end
