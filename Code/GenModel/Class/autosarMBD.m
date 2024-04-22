@@ -1,35 +1,47 @@
 classdef autosarMBD < handle
     properties
         dd_sht_tbl
+
         case_key
         case_value
         case_dict
+
+        cantx_info
+        cantx_sldd
         cantx_normal
         cantx_error
         cantx_noerror
-        cantx_info
-        cantx_sldd
+
+        canrx_info
+        canrx_sldd
+        canrx_normal
+        canrx_error
+
         main_base_width
         main_base_up
         main_base_down
         main_port_interval
         main_port_offset
+
         swt_base_width
         swt_base_up
         swt_base_down
         swt_port_interval
         swt_port_offset
+
         case_subsystem_base_width
         case_subsystem_base_up
         case_subsystem_base_down
-        elvl_sub_interval
+        case_subsystem_interval
         case_subsystem_port_interval
         case_subsystem_port_offset
+
         sig_base_pos
         sig_sub_interval
+
         case_str
-        sldd_obj
-        design_data
+        tx_sldd_obj
+        tx_design_data
     end
 
     methods
@@ -41,7 +53,9 @@ classdef autosarMBD < handle
             obj.cantx_normal = 'Lib/cantx_normal';
             obj.cantx_error = 'Lib/cantx_error';
             obj.cantx_noerror = 'Lib/cantx_noerror';
-            obj.cantx_sldd = which('Lib.sldd');
+            obj.cantx_sldd = which('cantx.sldd');
+            obj.canrx_normal = 'Lib/canrx_normal';
+            obj.canrx_sldd = which('canrx.sldd');
             obj.main_base_width = [240 650];
             obj.main_base_up = 25;
             obj.main_base_down = 0;
@@ -55,7 +69,7 @@ classdef autosarMBD < handle
             obj.case_subsystem_base_width = [1000 1510];
             obj.case_subsystem_base_up = 150;
             obj.case_subsystem_base_down = 0;
-            obj.elvl_sub_interval = 70;
+            obj.case_subsystem_interval = 70;
             obj.case_subsystem_port_interval = 30;
             obj.case_subsystem_port_offset = 10;
             obj.sig_base_pos = [-125 25 530 85];
@@ -67,7 +81,9 @@ classdef autosarMBD < handle
             %% 获取 cantx info
             obj.cantx_info = model_info;
             %% 配置生成模型路径及拷贝 sldd
-            rmdir(save_path, 's')
+            if exist(save_path,'dir')
+                rmdir(save_path, 's')
+            end
             mkdir(save_path);
             addpath(save_path)
             sldd_path = [save_path '\' model_name '.sldd'];
@@ -132,7 +148,7 @@ classdef autosarMBD < handle
             % 配置 Init Case Subsystem 位置
             obj.case_subsystem_base_down = obj.case_subsystem_base_up + (obj.case_subsystem_port_interval+25)*init_case_subsystem_port_num + obj.case_subsystem_port_offset;
             init_case_subsystem_pos =  [obj.case_subsystem_base_width(1) obj.case_subsystem_base_up obj.case_subsystem_base_width(2) obj.case_subsystem_base_down];
-            obj.case_subsystem_base_up = obj.case_subsystem_base_down + obj.elvl_sub_interval;
+            obj.case_subsystem_base_up = obj.case_subsystem_base_down + obj.case_subsystem_interval;
             set_param(init_case_subsystem_path, 'Position', init_case_subsystem_pos);
             % Switch 与 Init Case Subsystem 连线
             add_line(subsystem_path, swt_blk_hdls.Outport(1), init_case_subsystem_port_hdls.Ifaction(1), 'autorouting','on');
@@ -149,7 +165,7 @@ classdef autosarMBD < handle
                 % 配置非 Init Case Subsystem 位置
                 obj.case_subsystem_base_down = obj.case_subsystem_base_up + obj.case_subsystem_port_interval*case_subsystem_port_num + obj.case_subsystem_port_offset;
                 sig_case_subsystem_pos =  [obj.case_subsystem_base_width(1) obj.case_subsystem_base_up obj.case_subsystem_base_width(2) obj.case_subsystem_base_down];
-                obj.case_subsystem_base_up = obj.case_subsystem_base_down + obj.elvl_sub_interval;
+                obj.case_subsystem_base_up = obj.case_subsystem_base_down + obj.case_subsystem_interval;
                 set_param(sig_case_subsystem_path, 'Position', sig_case_subsystem_pos);
                 % Switch 与非 Init Case Subsystem 连线
                 add_line(subsystem_path, swt_blk_hdls.Outport(1+i_case), case_subsystem_port_hdls.Ifaction(1), 'autorouting','on');
@@ -214,6 +230,91 @@ classdef autosarMBD < handle
             %% 配置 sig subsystem 缩放大小及代码生成格式
             set_param(subsystem_path, 'ZoomFactor', '100')
             set_param(subsystem_path, 'TreatAsAtomicUnit', 'on', 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name')
+        end
+
+        function gen_rx_normal_model(obj, save_path, model_name, model_info)
+            %% 获取 canrx info
+            obj.canrx_info = model_info;           
+            disp(model_info)
+            %% 配置生成模型路径及拷贝 sldd
+            if exist(save_path,'dir')
+                rmdir(save_path, 's')
+            end
+            mkdir(save_path);
+            addpath(save_path)
+            sldd_path = [save_path '\' model_name '.sldd'];
+            copyfile(obj.canrx_sldd, sldd_path);
+            %% 新建并打开 rx normal model
+            rx_normal_model = new_system(model_name);
+            open_system(rx_normal_model);            
+            %% 配置 rx normal model sldd 
+            set_param(rx_normal_model, 'Datadictionary',[model_name '.sldd'])
+            %% 添加 rx normal subsystem
+            main_subsystem_path = [model_name '/' model_name '_main'];
+            obj.add_rx_normal_subsystem(main_subsystem_path);
+            %% 添加 bus type
+            obj.add_rx_normal_frame_type_to_sldd(model_name, sldd_path);
+        end
+
+        function system_hdl = add_rx_normal_subsystem(obj, subsystem_path)
+            %% 添加 cantx_normal 模板
+            system_hdl = add_block(obj.canrx_normal, subsystem_path);
+            %% 获取 system name
+            subsystem_name = get_param(subsystem_path, 'Name');
+        end
+
+        function add_rx_normal_frame_type_to_sldd(obj, model_name, sldd_path)
+            sldd_obj = Simulink.data.dictionary.open(sldd_path);
+            design_data = getSection(sldd_obj,'Design Data');
+            frame_type = getEntry(design_data, 'canframe');
+            frame_bus = getValue(frame_type);
+            sig_num = length(obj.canrx_info.Row);
+            start_flag = 0;
+            ele_id = 1;
+            reserve_id = 0;
+            for i_ele = 1:sig_num
+                start_bit = str2double(obj.canrx_info.("Start Bit")(i_ele));
+                sig_name = obj.canrx_info.Row{i_ele};
+                sig_len = str2double(obj.canrx_info.Length{i_ele});
+                sig_factor = obj.canrx_info.Factor{i_ele};
+                sig_offset = obj.canrx_info.Offset{i_ele};
+                sig_max = str2double(obj.canrx_info.Max{i_ele});
+                sig_min = str2double(obj.canrx_info.Min{i_ele});
+                if sig_min < 0
+                    sig_sign = '1';
+                else
+                    sig_sign = '0';
+                end
+                if start_flag ~= start_bit
+                    reserve_len = num2str(start_bit-start_flag);
+                    frame_ele(ele_id) = Simulink.BusElement;
+                    frame_ele(ele_id).Name = [model_name '_reserve' num2str(reserve_id)];
+                    frame_ele(ele_id).DataType = ['fixdt(0,', reserve_len, ',0)'];
+                    start_flag = start_bit + sig_len;
+                    reserve_id = reserve_id + 1;
+                    ele_id = ele_id + 1;
+                end
+
+                frame_ele(ele_id) = Simulink.BusElement;
+                frame_ele(ele_id).Name = sig_name;
+                frame_ele(ele_id).DataType = ['fixdt(', sig_sign, ',', num2str(sig_len), ',', sig_factor, ',', sig_offset, ')'];
+                frame_ele(ele_id).Max = sig_max;
+                frame_ele(ele_id).Min = sig_min;
+                ele_id = ele_id + 1;
+
+                if i_ele == sig_num
+                    if start_bit + sig_len ~= 64
+                        reserve_len = 64 - (start_bit + sig_len);
+                        frame_ele(ele_id) = Simulink.BusElement;
+                        frame_ele(ele_id).Name = [model_name '_reserve' num2str(reserve_id)];
+                        frame_ele(ele_id).DataType = ['fixdt(0,', num2str(reserve_len), ',0)'];
+                    end
+                end
+            end
+            frame_bus.Elements = frame_ele;
+            setValue(frame_type, frame_bus);
+            sldd_obj.saveChanges()
+            sldd_obj.close()
         end
 
         function modify_port_line_name(~, port_dire, subsystem_path, ori_name, dst_name)
@@ -291,12 +392,23 @@ classdef autosarMBD < handle
             end
         end
 
+
+
+
+
+
+
+
+
+
+
+
         function gen_tx_normal_code(obj, save_path, model_name)
             cd(save_path)
             open_system(model_name)
             sldd_path = [save_path '\' model_name '.sldd'];
-            obj.sldd_obj = Simulink.data.dictionary.open(sldd_path);
-            obj.design_data = getSection(obj.sldd_obj,'Design Data');
+            obj.tx_sldd_obj = Simulink.data.dictionary.open(sldd_path);
+            obj.tx_design_data = getSection(obj.tx_sldd_obj,'Design Data');
 
             obj.modify_model_config(model_name)
 
@@ -307,8 +419,8 @@ classdef autosarMBD < handle
 
             obj.add_subsystem_port_resolve(model_name)
 
-            obj.sldd_obj.saveChanges()
-            obj.sldd_obj.close()
+            obj.tx_sldd_obj.saveChanges()
+            obj.tx_sldd_obj.close()
             save_system(model_name);
         end
 
@@ -351,7 +463,7 @@ classdef autosarMBD < handle
             sig.CoderInfo.StorageClass = "ExportedGlobal";
             sig_info = obj.dd_sht_tbl(signal_name,:);
             if strcmp(sig_info.Resolution, "1")
-                sig.DataType = sig_info.Label;
+                sig.DataType = sig_info.Attribute;
             else
                 tx_info = obj.cantx_info(signal_name,:);
                 if strcmp(sig_info.Label, "UB")
@@ -370,7 +482,7 @@ classdef autosarMBD < handle
             end
             sig.Max = str2double(sig_info.("Max（Internal）"));
             sig.Min = str2double(sig_info.("Min（Internal）"));
-            addEntry(obj.design_data, signal_name, sig)
+            addEntry(obj.tx_design_data, signal_name, sig)
         end
     end
 end

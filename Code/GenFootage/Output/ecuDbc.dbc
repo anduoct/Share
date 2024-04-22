@@ -38,7 +38,7 @@ BO_ 447 ECU_0x1BF: 8 Other
  SG_ can_gmlan_rx_trb_duty : 15|8@0+ (1,0) [-100|100] "%"  ECU
  SG_ can_gmlan_rx_trb_power_off_enb_stat : 18|1@0+ (1,0) [0|1] "-"  ECU
  SG_ can_gmlan_rx_trb_ctrl_enb_stat : 17|1@0+ (1,0) [0|1] "-"  ECU
- SG_ can_gmlan_rx_vnt_act_pos : 25|3@0+ (0.1,0) [0|100] "%"  ECU
+ SG_ can_gmlan_rx_vnt_act_pos : 25|10@0+ (0.1,0) [0|100] "%"  ECU
  SG_ can_gmaln_rx_trb_err_msg : 47|16@0+ (1,0) [0|65535] "-"  ECU
 
 

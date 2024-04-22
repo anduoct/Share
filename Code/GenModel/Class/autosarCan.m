@@ -6,7 +6,8 @@ classdef autosarCan < handle
         msg_class
         current_path
         dd_sht_tbl
-        in_xls_opt
+        cantx_xls_opt
+        canrx_xls_opt
         asr_mbd
         output_model_path
         output_code_path
@@ -35,13 +36,21 @@ classdef autosarCan < handle
             dd_xls_opt = spreadsheetImportOptions("NumVariables", dd_var_nums, "VariableNames", dd_var_names, "VariableTypes", dd_var_types, "VariableNamingRule", dd_var_namerules, "DataRange", dd_var_range, "RowNamesRange", dd_row_names_range);
             obj.dd_sht_tbl = readtable(dd_xls_path, dd_xls_opt);
 
-            in_var_names = {'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Output', 'Elevel'};
-            in_var_types = {'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'};
-            in_var_namerules = 'preserve';
-            in_var_range = 'B2';
-            in_row_names_range = 'A2';
-            in_var_nums = 8;
-            obj.in_xls_opt = spreadsheetImportOptions("NumVariables", in_var_nums, "VariableNames", in_var_names, "VariableTypes", in_var_types, "VariableNamingRule", in_var_namerules, "DataRange", in_var_range, "RowNamesRange", in_row_names_range);
+            canrx_var_names = {'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Output', 'Start Bit', 'Length'};
+            canrx_var_types = {'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'};
+            canrx_var_namerules = 'preserve';
+            canrx_var_range = 'B2';
+            canrx_row_names_range = 'A2';
+            canrx_var_nums = 9;
+            obj.canrx_xls_opt = spreadsheetImportOptions("NumVariables", canrx_var_nums, "VariableNames", canrx_var_names, "VariableTypes", canrx_var_types, "VariableNamingRule", canrx_var_namerules, "DataRange", canrx_var_range, "RowNamesRange", canrx_row_names_range);
+
+            cantx_var_names = {'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Output', 'Elevel'};
+            cantx_var_types = {'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'};
+            cantx_var_namerules = 'preserve';
+            cantx_var_range = 'B2';
+            cantx_row_names_range = 'A2';
+            cantx_var_nums = 8;
+            obj.cantx_xls_opt = spreadsheetImportOptions("NumVariables", cantx_var_nums, "VariableNames", cantx_var_names, "VariableTypes", cantx_var_types, "VariableNamingRule", cantx_var_namerules, "DataRange", cantx_var_range, "RowNamesRange", cantx_row_names_range);
 
             obj.asr_mbd = autosarMBD(obj.dd_sht_tbl);
         end
@@ -54,47 +63,65 @@ classdef autosarCan < handle
                     id_flag = in_sht_names(i_name);
                     continue
                 end
-                obj.in_xls_opt.Sheet = in_sht_names(i_name);
-                in_sht_tbl = readtable(in_xls_path, obj.in_xls_opt);
-            
-                for i_row = 1:length(in_sht_tbl.Row)
-                    row_name = in_sht_tbl.Row(i_row);
-                    lsb_str = join([obj.dd_sht_tbl(row_name, 'numerator').Variables  '/'  obj.dd_sht_tbl(row_name, 'denominator').Variables], '');
-                    resolution_str = obj.dd_sht_tbl(row_name, 'Resolution').Variables;
-                    in_lsb_str = in_sht_tbl(row_name, 'Factor').Variables;
-                    if ~(strcmp(in_lsb_str, lsb_str) || strcmp(in_lsb_str, resolution_str))
-                        me = MException('CAN:noSuchLSB', '%s lsb not equal to DD', row_name{1});
-                        throw(me)
-                    end
-                    in_sht_tbl(row_name,'Elevel') = obj.dd_sht_tbl(row_name,'E.Level');
-                end
-                
-            
+
                 if strcmp(id_flag, "TxNormal")
-                    obj.tx_normal_dict(in_sht_names(i_name)) = in_sht_tbl;
+                    obj.cantx_xls_opt.Sheet = in_sht_names(i_name);
+                    cantx_sht_tbl = readtable(in_xls_path, obj.cantx_xls_opt);
+                    for i_row = 1:length(cantx_sht_tbl.Row)
+                        row_name = cantx_sht_tbl.Row(i_row);
+                        lsb_str = join([obj.dd_sht_tbl(row_name, 'numerator').Variables  '/'  obj.dd_sht_tbl(row_name, 'denominator').Variables], '');
+                        resolution_str = obj.dd_sht_tbl(row_name, 'Resolution').Variables;
+                        in_lsb_str = cantx_sht_tbl(row_name, 'Factor').Variables;
+                        if ~(strcmp(in_lsb_str, lsb_str) || strcmp(in_lsb_str, resolution_str))
+                            me = MException('CAN:noSuchLSB', '%s lsb not equal to DD', row_name{1});
+                            throw(me)
+                        end
+                        cantx_sht_tbl(row_name,'Elevel') = obj.dd_sht_tbl(row_name,'E.Level');
+                    end
+                    obj.tx_normal_dict(in_sht_names(i_name)) = cantx_sht_tbl;
                 elseif strcmp(id_flag, "RxNormal")
-                    obj.rx_normal_dict(in_sht_names(i_name)) = in_sht_tbl;
+                    obj.canrx_xls_opt.Sheet = in_sht_names(i_name);
+                    canrx_sht_tbl = readtable(in_xls_path, obj.canrx_xls_opt);
+                    disp(canrx_sht_tbl)
+                    for i_row = 1:length(canrx_sht_tbl.Row)
+                        row_name = canrx_sht_tbl.Row(i_row);
+                        lsb_str = join([obj.dd_sht_tbl(row_name, 'numerator').Variables  '/'  obj.dd_sht_tbl(row_name, 'denominator').Variables], '');
+                        resolution_str = obj.dd_sht_tbl(row_name, 'Resolution').Variables;
+                        in_lsb_str = canrx_sht_tbl(row_name, 'Factor').Variables;
+                        if ~(strcmp(in_lsb_str, lsb_str) || strcmp(in_lsb_str, resolution_str))
+                            me = MException('CAN:noSuchLSB', '%s lsb not equal to DD', row_name{1});
+                            throw(me)
+                        end
+                    end
+                    obj.rx_normal_dict(in_sht_names(i_name)) = canrx_sht_tbl;
                 end
             end
         end
 
         function gen_model(obj)
-            for i_key = keys(obj.tx_normal_dict)
+%             for i_key = keys(obj.tx_normal_dict)
+%                 model_path = obj.output_model_path;
+%                 model_name = ['cantx_0x' i_key{1}];
+%                 model_info = obj.tx_normal_dict(i_key{1});
+%                 per_save_path = [model_path '\' model_name];
+%                 obj.asr_mbd.gen_tx_normal_model(per_save_path, model_name, model_info)
+%             end
+            for i_key = keys(obj.rx_normal_dict)
                 model_path = obj.output_model_path;
-                model_name = ['cantx_0x' i_key{1}];
-                model_info = obj.tx_normal_dict(i_key{1});
+                model_name = ['canrx_0x' i_key{1}];
+                model_info = obj.rx_normal_dict(i_key{1});
                 per_save_path = [model_path '\' model_name];
-                obj.asr_mbd.gen_tx_normal_model(per_save_path, model_name, model_info)
+                obj.asr_mbd.gen_rx_normal_model(per_save_path, model_name, model_info)
             end
         end
 
         function gen_code(obj)
-            for i_key = keys(obj.tx_normal_dict)
-                model_path = obj.output_model_path;
-                model_name = ['cantx_0x' i_key{1}];
-                per_save_path = [model_path '\' model_name];
-                obj.asr_mbd.gen_tx_normal_code(per_save_path, model_name);
-            end
+%             for i_key = keys(obj.tx_normal_dict)
+%                 model_path = obj.output_model_path;
+%                 model_name = ['cantx_0x' i_key{1}];
+%                 per_save_path = [model_path '\' model_name];
+%                 obj.asr_mbd.gen_tx_normal_code(per_save_path, model_name);
+%             end
         end
 
     end

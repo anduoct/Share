@@ -762,7 +762,7 @@ class ecuDbc:
 
 # %%
 xlsDB = xlsDatabase()
-xlsDB.load(r'Input\test.xlsx', 'ISOCAN')
+xlsDB.load(r'D:\00.Me\DL\Share\Code\GenFootage\Input\test.xlsx', 'ISOCAN')
 
 dbc = ecuDbc()
 dbc.load(xlsDB)
