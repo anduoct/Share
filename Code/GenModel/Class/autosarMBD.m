@@ -39,9 +39,13 @@ classdef autosarMBD < handle
         sig_base_pos
         sig_sub_interval
 
+        extract_base_pos
+        extract_interval
+        preprocess_subsystem_base_pos
+        preprocess_subsystem_port_interval
+
         case_str
-        tx_sldd_obj
-        tx_design_data
+
     end
 
     methods
@@ -55,6 +59,7 @@ classdef autosarMBD < handle
             obj.cantx_noerror = 'Lib/cantx_noerror';
             obj.cantx_sldd = which('cantx.sldd');
             obj.canrx_normal = 'Lib/canrx_normal';
+            obj.canrx_error = 'Lib/canrx_error';
             obj.canrx_sldd = which('canrx.sldd');
             obj.main_base_width = [240 650];
             obj.main_base_up = 25;
@@ -74,6 +79,10 @@ classdef autosarMBD < handle
             obj.case_subsystem_port_offset = 10;
             obj.sig_base_pos = [-125 25 530 85];
             obj.sig_sub_interval = 90;
+            obj.preprocess_subsystem_base_pos = [215 100 470 200];
+            obj.preprocess_subsystem_port_interval = 30;
+            obj.extract_base_pos = [310 20 390 60];
+            obj.extract_interval = 70;
             obj.case_str = '';
         end
 
@@ -81,6 +90,7 @@ classdef autosarMBD < handle
             %% 获取 cantx info
             obj.cantx_info = model_info;
             %% 配置生成模型路径及拷贝 sldd
+            Simulink.data.dictionary.closeAll('-discard');
             if exist(save_path,'dir')
                 rmdir(save_path, 's')
             end
@@ -141,7 +151,7 @@ classdef autosarMBD < handle
             %% 获取 Swicth Case 输出端口
             swt_blk_hdls = get_param(swt_blk_path, 'PortHandles');
             %%  添加 Init Case Subsystem
-            init_case_subsystem_path = [subsystem_path '/' subsystem_name '_Init'];
+            init_case_subsystem_path = [subsystem_path '/' subsystem_name(1:end-5) '_Init'];
             obj.add_tx_sig_case_subsystem(init_case_subsystem_path, obj.cantx_info);
             init_case_subsystem_port_hdls = get_param(init_case_subsystem_path, 'PortHandles');
             init_case_subsystem_port_num = length(init_case_subsystem_port_hdls.Inport);
@@ -157,7 +167,7 @@ classdef autosarMBD < handle
             %% 循环添加非 Init Case Subsystem
             for i_case = 1:length(tx_case_list)
                 case_name = tx_case_list(i_case);
-                sig_case_subsystem_path = [subsystem_path '/' subsystem_name '_' case_name{1}];
+                sig_case_subsystem_path = [subsystem_path '/' subsystem_name(1:end-5) '_' case_name{1}];
                 sig_case_info = obj.cantx_info(strcmp(obj.cantx_info.Elevel, case_name),:);
                 obj.add_tx_sig_case_subsystem(sig_case_subsystem_path, sig_case_info);
                 case_subsystem_port_hdls = get_param(sig_case_subsystem_path, 'PortHandles');
@@ -172,7 +182,7 @@ classdef autosarMBD < handle
                 % 添加 Init Case Subsystem 输入端口
                 obj.add_subsystem_inport(sig_case_subsystem_path);
                 % 合并 Case Subsystem 共有输出端口
-                obj.add_subsystem_merge_outport(init_case_subsystem_path, sig_case_subsystem_path)
+                obj.add_subsystem_merge_outport(init_case_subsystem_path, sig_case_subsystem_path);
             end
             %% 配置 tx normal subsystem 缩放大小
             set_param(subsystem_path, 'ZoomFactor', '100')
@@ -196,29 +206,29 @@ classdef autosarMBD < handle
                 % 添加 sig subsystem
                 obj.add_tx_sig_subsystem(sig_subsystem_path, sig_subsystem_pos, sig_info);
                 % 配置 sig subsystem 端口
-                obj.add_subsystem_port(sig_subsystem_path)
+                obj.add_subsystem_port(sig_subsystem_path);
             end
             %% 设置 swtich case subsystem 缩放大小及代码生成格式
-            set_param(subsystem_path, 'ZoomFactor', '100')
-            set_param(subsystem_path, 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name')
+            set_param(subsystem_path, 'ZoomFactor', '100');
+            set_param(subsystem_path, 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name');
         end
 
-        function subsystem_hdl = add_tx_sig_subsystem(obj, subsystem_path, subsystem_pos, sig_case_info)
+        function system_hdl = add_tx_sig_subsystem(obj, subsystem_path, subsystem_pos, sig_case_info)
             %% 通过表格判读添加 sig subsystem 类型
             sig_name = sig_case_info.Row{1};
             if contains(sig_case_info.("Invalid Status"), 'always FALSE')
-                subsystem_hdl = add_block(obj.cantx_noerror, subsystem_path, 'Position', subsystem_pos);
+                system_hdl = add_block(obj.cantx_noerror, subsystem_path, 'Position', subsystem_pos);
             else
-                subsystem_hdl = add_block(obj.cantx_error, subsystem_path, 'Position', subsystem_pos);
+                system_hdl = add_block(obj.cantx_error, subsystem_path, 'Position', subsystem_pos);
                 % 修改 can error status 名
                 error_name = ['CanTx_Err_' sig_name];
-                obj.modify_port_line_name('In', subsystem_path, 'cantx_inv_status', error_name)
+                obj.modify_port_line_name('In', subsystem_path, 'cantx_inv_status', error_name);
             end
             %% 修改 can in 名
-            obj.modify_port_line_name('In', subsystem_path, 'cantx_phy', sig_name)   
+            obj.modify_port_line_name('In', subsystem_path, 'cantx_phy', sig_name);
             %% 修改 can out 名
             outport_name = ['CanTx_' sig_name];
-            obj.modify_port_line_name('Out', subsystem_path, 'cantx_raw', outport_name)
+            obj.modify_port_line_name('Out', subsystem_path, 'cantx_raw', outport_name);
             %% 配置 LSB Offset
             % mask_values = {sig_case_info.Offset, sig_case_info.Factor};
             % set_param([subsystem_path '/Phy2Raw'], 'MaskValues', mask_values); 
@@ -234,9 +244,9 @@ classdef autosarMBD < handle
 
         function gen_rx_normal_model(obj, save_path, model_name, model_info)
             %% 获取 canrx info
-            obj.canrx_info = model_info;           
-            disp(model_info)
+            obj.canrx_info = model_info;      
             %% 配置生成模型路径及拷贝 sldd
+            Simulink.data.dictionary.closeAll('-discard');
             if exist(save_path,'dir')
                 rmdir(save_path, 's')
             end
@@ -247,13 +257,23 @@ classdef autosarMBD < handle
             %% 新建并打开 rx normal model
             rx_normal_model = new_system(model_name);
             open_system(rx_normal_model);            
-            %% 配置 rx normal model sldd 
+            %% 配置 rx normal model 代码导出方式 sldd 及 缩放率
+            set_param(rx_normal_model, 'SetExecutionDomain', 'on','ExecutionDomainType', 'ExportFunction', 'IsExportFunctionModel', 'on');
             set_param(rx_normal_model, 'Datadictionary',[model_name '.sldd'])
             %% 添加 rx normal subsystem
             main_subsystem_path = [model_name '/' model_name '_main'];
             obj.add_rx_normal_subsystem(main_subsystem_path);
-            %% 添加 bus type
-            obj.add_rx_normal_frame_type_to_sldd(model_name, sldd_path);
+            % 配置 rx normal subsystem 位置
+            port_num = length(get_param(main_subsystem_path, 'PortHandles').Outport);
+            obj.main_base_down = obj.main_base_up + obj.main_port_interval*port_num + obj.main_port_offset;
+            set_param(main_subsystem_path, 'Position', [obj.main_base_width(1) obj.main_base_up obj.main_base_width(2) obj.main_base_down]);
+            % 添加 tx normal model 输入
+            obj.add_subsystem_port(main_subsystem_path);
+            %% 配置 tx normal model 缩放大小
+            set_param(rx_normal_model, 'ZoomFactor', '100');
+            %% 保存并关闭 rx normal model
+            save_system(rx_normal_model, [save_path, '\' , model_name, '.slx']);
+            close_system(rx_normal_model);
         end
 
         function system_hdl = add_rx_normal_subsystem(obj, subsystem_path)
@@ -261,60 +281,122 @@ classdef autosarMBD < handle
             system_hdl = add_block(obj.canrx_normal, subsystem_path);
             %% 获取 system name
             subsystem_name = get_param(subsystem_path, 'Name');
+            %% 设置 Trigger Port 参数
+            trg_port_path = [subsystem_path '/canrx_normal'];
+            set_param(trg_port_path, 'FunctionName', subsystem_name, 'FunctionPrototype', [subsystem_name '(channel, canframe, time)']);
+            %% 添加 cantx preprocess
+            rx_sig_prepocess_subsystem_ori_path = [subsystem_path '/canframe_preprocess'];
+            rx_sig_prepocess_subsystem_name = [subsystem_name(1:end-5) '_preprocess'];
+            rx_sig_prepocess_subsystem_dst_path = [subsystem_path '/' rx_sig_prepocess_subsystem_name];
+            set_param(rx_sig_prepocess_subsystem_ori_path, 'Name', rx_sig_prepocess_subsystem_name)
+            obj.add_rx_sig_prepocess_subsystem(rx_sig_prepocess_subsystem_dst_path);
+            %% 添加 canrx postprocess
+            rx_sig_postprocess_subsystem_name = [subsystem_name(1:end-5) '_postprocess'];
+            rx_sig_postprocess_subsystem_path = [subsystem_path '/' rx_sig_postprocess_subsystem_name];
+            obj.add_rx_sig_postpocess_subsystem(rx_sig_postprocess_subsystem_path);
+            %% 配置 canrx preprocess/postprocess subsystem 位置
+            pre_out_hdls = get_param(rx_sig_prepocess_subsystem_dst_path, 'PortHandles').Outport;
+            post_in_hdls = get_param(rx_sig_postprocess_subsystem_path, 'PortHandles').Inport;
+            inport_num = length(post_in_hdls);
+            rx_sig_prepocess_subsystem_pos = obj.preprocess_subsystem_base_pos + [0 0 0 obj.preprocess_subsystem_port_interval*inport_num];
+            set_param(rx_sig_prepocess_subsystem_dst_path, 'Position', rx_sig_prepocess_subsystem_pos);
+            rx_sig_postpocess_subsystem_pos = rx_sig_prepocess_subsystem_pos + [500 0 500 0];
+            set_param(rx_sig_postprocess_subsystem_path, 'Position', rx_sig_postpocess_subsystem_pos);
+            %% 配置 canframe 及 Bus Selector 位置
+            pre_in_hdls = get_param(rx_sig_prepocess_subsystem_dst_path, 'PortHandles').Inport;
+            pre_in_pos = get_param(pre_in_hdls(1), 'Position');
+            frame_pos = [pre_in_pos(1)-240, pre_in_pos(2)-15, pre_in_pos(1)-160, pre_in_pos(2)+15];
+            set_param([subsystem_path '/canframe'], 'Position', frame_pos)
+            sel_pos = [pre_in_pos(1)-70, pre_in_pos(2)-15, pre_in_pos(1)-65, pre_in_pos(2)+15];
+            set_param([subsystem_path '/Bus Selector'], 'Position', sel_pos)
+            %% 配置 canrx preprocess/postprocess subsystem 连线
+            for i_sig = 1:length(obj.canrx_info.Row)
+                sig_name = ['CanRx_' obj.canrx_info.Row{i_sig}];
+                pre_sig_path = [rx_sig_prepocess_subsystem_dst_path '/' sig_name];
+                post_sig_path = [rx_sig_postprocess_subsystem_path '/' sig_name];
+                pre_sig_num = str2double(get_param(pre_sig_path, 'Port'));
+                post_sig_num = str2double(get_param(post_sig_path, 'Port'));
+                add_line(subsystem_path, pre_out_hdls(pre_sig_num), post_in_hdls(post_sig_num), 'autorouting','on'); 
+            end
+            %% 配置 canrx postprocess subsystem 端口
+            obj.add_subsystem_port(rx_sig_postprocess_subsystem_path);
         end
 
-        function add_rx_normal_frame_type_to_sldd(obj, model_name, sldd_path)
-            sldd_obj = Simulink.data.dictionary.open(sldd_path);
-            design_data = getSection(sldd_obj,'Design Data');
-            frame_type = getEntry(design_data, 'canframe');
-            frame_bus = getValue(frame_type);
-            sig_num = length(obj.canrx_info.Row);
-            start_flag = 0;
-            ele_id = 1;
-            reserve_id = 0;
-            for i_ele = 1:sig_num
-                start_bit = str2double(obj.canrx_info.("Start Bit")(i_ele));
-                sig_name = obj.canrx_info.Row{i_ele};
-                sig_len = str2double(obj.canrx_info.Length{i_ele});
-                sig_factor = obj.canrx_info.Factor{i_ele};
-                sig_offset = obj.canrx_info.Offset{i_ele};
-                sig_max = str2double(obj.canrx_info.Max{i_ele});
-                sig_min = str2double(obj.canrx_info.Min{i_ele});
-                if sig_min < 0
-                    sig_sign = '1';
-                else
-                    sig_sign = '0';
-                end
-                if start_flag ~= start_bit
-                    reserve_len = num2str(start_bit-start_flag);
-                    frame_ele(ele_id) = Simulink.BusElement;
-                    frame_ele(ele_id).Name = [model_name '_reserve' num2str(reserve_id)];
-                    frame_ele(ele_id).DataType = ['fixdt(0,', reserve_len, ',0)'];
-                    start_flag = start_bit + sig_len;
-                    reserve_id = reserve_id + 1;
-                    ele_id = ele_id + 1;
-                end
+        function system_hdl = add_rx_sig_prepocess_subsystem(obj, subsystem_path)
+            system_hdl = get_param(subsystem_path, 'Handle');
+            for i_sig = 1:length(obj.canrx_info.Row)
+                sig_name = ['CanRx_' obj.canrx_info.Row{i_sig}];
+                sig_start_bit = str2double(obj.canrx_info.("Start Bit"){i_sig});
+                sig_len = str2double(obj.canrx_info.Length{i_sig});
+                sig_extract_str = ['[' num2str(sig_start_bit) ' ' num2str(sig_start_bit+sig_len-1) ']'];
 
-                frame_ele(ele_id) = Simulink.BusElement;
-                frame_ele(ele_id).Name = sig_name;
-                frame_ele(ele_id).DataType = ['fixdt(', sig_sign, ',', num2str(sig_len), ',', sig_factor, ',', sig_offset, ')'];
-                frame_ele(ele_id).Max = sig_max;
-                frame_ele(ele_id).Min = sig_min;
-                ele_id = ele_id + 1;
+                extract_pos = obj.extract_base_pos + [0 obj.extract_interval*i_sig 0 obj.extract_interval*i_sig];
+                extract_hdl = add_block('simulink/Logic and Bit Operations/Extract Bits', [subsystem_path '/Extract Bits'], 'MakeNameUnique', 'on', 'Position', extract_pos);
+                extract_name = get_param(extract_hdl, 'Name');
+                conversion_pos = extract_pos + [150 0 150 0];
+                conversion_hdl = add_block('simulink/Signal Attributes/Data Type Conversion', [subsystem_path '/Data Type Conversion'], 'MakeNameUnique', 'on', 'Position', conversion_pos);
+                conversion_name = get_param(conversion_hdl, 'Name');
+                set_param(extract_hdl, 'bitsToExtract', 'Range of bits', 'bitIdxRange', sig_extract_str, 'outScalingMode', 'Treat bit field as an integer');
 
-                if i_ele == sig_num
-                    if start_bit + sig_len ~= 64
-                        reserve_len = 64 - (start_bit + sig_len);
-                        frame_ele(ele_id) = Simulink.BusElement;
-                        frame_ele(ele_id).Name = [model_name '_reserve' num2str(reserve_id)];
-                        frame_ele(ele_id).DataType = ['fixdt(0,', num2str(reserve_len), ',0)'];
-                    end
-                end
+                out_pos = get_param(get_param(conversion_hdl, 'PortHandles').Outport(1), 'Position'); 
+                outport_pos =  [out_pos(1)+170, out_pos(2)-7, out_pos(1)+200, out_pos(2)+7];
+                add_block('simulink/Sinks/Out1', [subsystem_path '/' sig_name], 'Name', sig_name, 'Position', outport_pos)
+
+                add_line(subsystem_path, 'canframe/1', [extract_name '/1'], 'autorouting','on'); 
+                add_line(subsystem_path, [extract_name '/1'], [conversion_name '/1'], 'autorouting','on'); 
+                add_line(subsystem_path, [conversion_name '/1'], [sig_name '/1'], 'autorouting','on');
             end
-            frame_bus.Elements = frame_ele;
-            setValue(frame_type, frame_bus);
-            sldd_obj.saveChanges()
-            sldd_obj.close()
+            %% 配置 cantx preprocess subsystem 缩放大小
+            set_param(subsystem_path, 'ZoomFactor', '100')
+            set_param(subsystem_path, 'TreatAsAtomicUnit', 'on', 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name')
+        end
+
+        function system_hdl = add_rx_sig_postpocess_subsystem(obj, subsystem_path)
+            %% 添加 subsystem
+            system_hdl = add_block('simulink/Ports & Subsystems/Subsystem', subsystem_path);
+            %% 删除原有的 in out line
+            del_in_hdl = getSimulinkBlockHandle([subsystem_path '/In1']);
+            del_out_hdl = getSimulinkBlockHandle([subsystem_path '/Out1']);
+            del_line_hdl = get_param(del_in_hdl, 'LineHandles');
+            delete_block([del_in_hdl, del_out_hdl]);
+            delete_line(del_line_hdl.Outport(1));
+            %% 批量添加 sig subsystem
+            for i_sig = 1:length(obj.canrx_info.Row)
+                sig_info = obj.canrx_info(i_sig,:);
+                sig_name = sig_info.Row{1};
+                sig_subsystem_path = [subsystem_path '/sig_' sig_name];
+                sig_subsystem_pos = [obj.sig_base_pos(1), obj.sig_base_pos(2) + i_sig * obj.sig_sub_interval, obj.sig_base_pos(3), obj.sig_base_pos(4) + i_sig * obj.sig_sub_interval];
+                % 添加 sig subsystem
+                obj.add_rx_sig_subsystem(sig_subsystem_path, sig_info);
+                set_param(sig_subsystem_path, 'Position', sig_subsystem_pos);
+                % 配置 sig subsystem 端口
+                obj.add_subsystem_port(sig_subsystem_path)
+            end
+            %% 配置 cantx postprocess subsystem 缩放大小
+            set_param(subsystem_path, 'ZoomFactor', '100')
+            set_param(subsystem_path, 'TreatAsAtomicUnit', 'on', 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name')
+        end
+
+        function system_hdl = add_rx_sig_subsystem(obj, subsystem_path, sig_info)
+            %% 通过表格判读添加 sig subsystem 类型
+            sig_name = sig_info.Row{1};
+            inport_name = ['CanRx_' sig_name];
+            inv_name = convertStringsToChars(sig_info.('Invalid Status'));
+            system_hdl = add_block(obj.canrx_error, subsystem_path);
+            %% 修改 can in 名
+            obj.modify_port_line_name('In', subsystem_path, 'canrx_raw', inport_name)   
+            %% 修改 can out 名
+            obj.modify_port_line_name('Out', subsystem_path, 'canrx_phy', sig_name)
+            %% 修改 can error 名
+            obj.modify_port_line_name('In', subsystem_path, 'canrx_inv_status', inv_name)
+            %% 配置上下限
+            max_value = strcat("(", sig_info.Max, "- (", sig_info.Offset, ")) / (", sig_info.Factor, ")");
+            min_value = strcat("(", sig_info.Min, "- (", sig_info.Offset, ")) / (", sig_info.Factor, ")");
+            set_param([subsystem_path '/Max'], 'Value', max_value);
+            set_param([subsystem_path '/Min'], 'Value', min_value);
+            %% 配置 sig subsystem 缩放大小及代码生成格式
+            set_param(subsystem_path, 'ZoomFactor', '100')
+            set_param(subsystem_path, 'TreatAsAtomicUnit', 'on', 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name')
         end
 
         function modify_port_line_name(~, port_dire, subsystem_path, ori_name, dst_name)
@@ -344,12 +426,15 @@ classdef autosarMBD < handle
             inport_names = get_param(find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Inport'), 'Name');
             in_handles = get_param(subsystem_path, 'PortHandles').Inport;
             for i_in = 1:length(in_handles)
-                in_pos = get_param(get_param(subsystem_path, 'PortHandles').Inport(i_in), 'Position');
-                inport_pos =  [in_pos(1)-200, in_pos(2)-7, in_pos(1)-170, in_pos(2)+7];
-                if isempty(find_system(parent_path,'SearchDepth', 1, 'BlockType', 'Inport', 'Name', inport_names{i_in}))
-                    add_block('simulink/Sources/In1', [parent_path '/' inport_names{i_in}], 'Name', inport_names{i_in}, 'Position', inport_pos)
+                in_hdl = get_param(subsystem_path, 'PortHandles').Inport(i_in);
+                if get_param(in_hdl, 'Line') == -1
+                    in_pos = get_param(in_hdl, 'Position');
+                    inport_pos =  [in_pos(1)-200, in_pos(2)-7, in_pos(1)-170, in_pos(2)+7];
+                    if isempty(find_system(parent_path,'SearchDepth', 1, 'BlockType', 'Inport', 'Name', inport_names{i_in}))
+                        add_block('simulink/Sources/In1', [parent_path '/' inport_names{i_in}], 'Name', inport_names{i_in}, 'Position', inport_pos)
+                    end
+                    add_line(parent_path, [inport_names{i_in} '/1'], [subsystem_name '/' num2str(i_in)], 'autorouting','on');     
                 end
-                add_line(parent_path, [inport_names{i_in} '/1'], [subsystem_name '/' num2str(i_in)], 'autorouting','on');     
             end
         end
 
@@ -359,10 +444,13 @@ classdef autosarMBD < handle
             outport_names = get_param(find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Outport'), 'Name');
             out_handles = get_param(subsystem_path, 'PortHandles').Outport;
             for i_out = 1:length(out_handles)
-                out_pos = get_param(get_param(subsystem_path, 'PortHandles').Outport(i_out), 'Position');
-                outport_pos =  [out_pos(1)+170, out_pos(2)-7, out_pos(1)+200, out_pos(2)+7];
-                add_block('simulink/Sinks/Out1', [parent_path '/' outport_names{i_out}], 'Name',outport_names{i_out},'Position', outport_pos)
-                add_line(parent_path, [subsystem_name '/' num2str(i_out)], [outport_names{i_out} '/1']);
+                out_hdl = get_param(subsystem_path, 'PortHandles').Outport(i_out);
+                if get_param(out_hdl, 'Line') == -1
+                    out_pos = get_param(out_hdl, 'Position');
+                    outport_pos =  [out_pos(1)+170, out_pos(2)-7, out_pos(1)+200, out_pos(2)+7];
+                    add_block('simulink/Sinks/Out1', [parent_path '/' outport_names{i_out}], 'Name',outport_names{i_out},'Position', outport_pos)
+                    add_line(parent_path, [subsystem_name '/' num2str(i_out)], [outport_names{i_out} '/1'], 'autorouting','on');
+                end
             end
         end
 
@@ -396,19 +484,13 @@ classdef autosarMBD < handle
 
 
 
-
-
-
-
-
-
-
         function gen_tx_normal_code(obj, save_path, model_name)
+            Simulink.data.dictionary.closeAll('-discard');
             cd(save_path)
             open_system(model_name)
             sldd_path = [save_path '\' model_name '.sldd'];
-            obj.tx_sldd_obj = Simulink.data.dictionary.open(sldd_path);
-            obj.tx_design_data = getSection(obj.tx_sldd_obj,'Design Data');
+            tx_sldd_obj = Simulink.data.dictionary.open(sldd_path);
+            tx_design_data = getSection(tx_sldd_obj,'Design Data');
 
             obj.modify_model_config(model_name)
 
@@ -417,11 +499,37 @@ classdef autosarMBD < handle
             mdl_wks = get_param(model_name, 'ModelWorkspace');
             assignin(mdl_wks, "trigger", trg_sig);
 
-            obj.add_subsystem_port_resolve(model_name)
+            obj.add_subsystem_port_resolve(model_name, obj.cantx_info, tx_design_data)
 
-            obj.tx_sldd_obj.saveChanges()
-            obj.tx_sldd_obj.close()
             save_system(model_name);
+            tx_sldd_obj.saveChanges()
+            tx_sldd_obj.close()
+            Simulink.data.dictionary.closeAll('-save');
+            close_system(model_name);
+
+        end
+
+        function gen_rx_normal_code(obj, save_path, model_name)
+            Simulink.data.dictionary.closeAll('-discard');
+            cd(save_path)
+            open_system(model_name)
+            sldd_path = [save_path '\' model_name '.sldd'];
+            rx_sldd_obj = Simulink.data.dictionary.open(sldd_path);
+            rx_design_data = getSection(rx_sldd_obj,'Design Data');
+
+            obj.modify_model_config(model_name)
+
+
+            rx_sig_prepocess_subsystem_name = [model_name '/' model_name '_main/' model_name '_preprocess'];
+            obj.add_outport_resolve_on_line(rx_sig_prepocess_subsystem_name, obj.canrx_info, rx_design_data)
+            obj.add_subsystem_port_resolve(model_name, obj.canrx_info, rx_design_data)
+
+            save_system(model_name);
+            rx_sldd_obj.saveChanges()
+            rx_sldd_obj.close()
+            Simulink.data.dictionary.closeAll('-save');
+            close_system(model_name);
+
         end
 
         function modify_model_config(~, model_name)
@@ -431,58 +539,70 @@ classdef autosarMBD < handle
             setActiveConfigSet(model_name,'SLDD_CFG');
         end
 
-        function add_subsystem_port_resolve(obj, subsystem_path)
-            obj.add_inport_resolve(subsystem_path);
-            obj.add_outport_resolve(subsystem_path);
+        function add_subsystem_port_resolve(obj, subsystem_path, can_info, design_data)
+            obj.add_inport_resolve_on_line(subsystem_path, can_info, design_data);
+            obj.add_outport_resolve_on_port(subsystem_path, can_info, design_data);
         end
 
-        function add_inport_resolve(obj, subsystem_path)
+        function add_inport_resolve_on_line(obj, subsystem_path, can_info, design_data)
             inport_path_list = find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Inport');
             inport_name_list = get_param(inport_path_list, 'NAME');
             inport_line_hdls = get_param(inport_path_list, 'LineHandles');
             for i_hdl = 1:length(inport_line_hdls)
                 set_param(inport_line_hdls{i_hdl}.Outport, 'Name', inport_name_list{i_hdl});
                 set(inport_line_hdls{i_hdl}.Outport, 'MustResolveToSignalObject', 1);
-                obj.add_signal_to_sldd(inport_name_list{i_hdl});
+                obj.add_signal_to_sldd(inport_name_list{i_hdl}, can_info, design_data);
             end
         end
 
-        function add_outport_resolve(obj, subsystem_path)
+        function add_outport_resolve_on_line(obj, subsystem_path, can_info, design_data)
+            outport_path_list = find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Outport');
+            outport_name_list = get_param(outport_path_list, 'NAME');
+            outport_line_hdls = get_param(outport_path_list, 'LineHandles');
+            for i_hdl = 1:length(outport_line_hdls)
+                set_param(outport_line_hdls{i_hdl}.Inport, 'Name', outport_name_list{i_hdl});
+                set(outport_line_hdls{i_hdl}.Inport, 'MustResolveToSignalObject', 1);
+                obj.add_signal_to_sldd(outport_name_list{i_hdl}, can_info, design_data);
+            end
+        end
+
+        function add_outport_resolve_on_port(obj, subsystem_path, can_info, design_data)
             outport_path_list = find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Outport');
             outport_name_list = get_param(outport_path_list, 'NAME');
             for i_hdl = 1:length(outport_path_list)
                 set_param(outport_path_list{i_hdl}, 'SignalName', outport_name_list{i_hdl});
                 hdl = get_param(outport_path_list{i_hdl}, 'Handle');
                 set(hdl, 'MustResolveToSignalObject', 1);
-                obj.add_signal_to_sldd(outport_name_list{i_hdl});
+                obj.add_signal_to_sldd(outport_name_list{i_hdl}, can_info, design_data);
             end
         end
 
-        function add_signal_to_sldd(obj, signal_name)
+        function add_signal_to_sldd(obj, signal_name, can_info, design_data)
             sig = Simulink.Signal;
             sig.CoderInfo.StorageClass = "ExportedGlobal";
             sig_info = obj.dd_sht_tbl(signal_name,:);
+%             strcmp(signal_name(1:6), "CanTx_") || strcmp(signal_name(1:6), "CanRx_")
             if strcmp(sig_info.Resolution, "1")
                 sig.DataType = sig_info.Attribute;
             else
-                tx_info = obj.cantx_info(signal_name,:);
-                if strcmp(sig_info.Label, "UB")
+                tx_info = can_info(signal_name,:);
+                if strcmp(sig_info.Attribute, "UB")
                     sig.DataType = strcat("fixdt(0, 8, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
-                elseif strcmp(sig_info.Label, "UW")
+                elseif strcmp(sig_info.Attribute, "UW")
                     sig.DataType = strcat("fixdt(0, 16, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
-                elseif strcmp(sig_info.Label, "UD")
+                elseif strcmp(sig_info.Attribute, "UD")
                     sig.DataType = strcat("fixdt(0, 32, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
-                elseif strcmp(sig_info.Label, "SB")
+                elseif strcmp(sig_info.Attribute, "SB")
                     sig.DataType = strcat("fixdt(0, 8, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
-                elseif strcmp(sig_info.Label, "SW")
+                elseif strcmp(sig_info.Attribute, "SW")
                     sig.DataType = strcat("fixdt(0, 16, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
-                elseif strcmp(sig_info.Label, "SD")
+                elseif strcmp(sig_info.Attribute, "SD")
                     sig.DataType = strcat("fixdt(0, 32, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
                 end
             end
             sig.Max = str2double(sig_info.("Max（Internal）"));
             sig.Min = str2double(sig_info.("Min（Internal）"));
-            addEntry(obj.tx_design_data, signal_name, sig)
+            addEntry(design_data, signal_name, sig)
         end
     end
 end

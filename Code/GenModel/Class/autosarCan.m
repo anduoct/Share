@@ -82,7 +82,6 @@ classdef autosarCan < handle
                 elseif strcmp(id_flag, "RxNormal")
                     obj.canrx_xls_opt.Sheet = in_sht_names(i_name);
                     canrx_sht_tbl = readtable(in_xls_path, obj.canrx_xls_opt);
-                    disp(canrx_sht_tbl)
                     for i_row = 1:length(canrx_sht_tbl.Row)
                         row_name = canrx_sht_tbl.Row(i_row);
                         lsb_str = join([obj.dd_sht_tbl(row_name, 'numerator').Variables  '/'  obj.dd_sht_tbl(row_name, 'denominator').Variables], '');
@@ -99,13 +98,13 @@ classdef autosarCan < handle
         end
 
         function gen_model(obj)
-%             for i_key = keys(obj.tx_normal_dict)
-%                 model_path = obj.output_model_path;
-%                 model_name = ['cantx_0x' i_key{1}];
-%                 model_info = obj.tx_normal_dict(i_key{1});
-%                 per_save_path = [model_path '\' model_name];
-%                 obj.asr_mbd.gen_tx_normal_model(per_save_path, model_name, model_info)
-%             end
+            for i_key = keys(obj.tx_normal_dict)
+                model_path = obj.output_model_path;
+                model_name = ['cantx_0x' i_key{1}];
+                model_info = obj.tx_normal_dict(i_key{1});
+                per_save_path = [model_path '\' model_name];
+                obj.asr_mbd.gen_tx_normal_model(per_save_path, model_name, model_info)
+            end
             for i_key = keys(obj.rx_normal_dict)
                 model_path = obj.output_model_path;
                 model_name = ['canrx_0x' i_key{1}];
@@ -116,12 +115,18 @@ classdef autosarCan < handle
         end
 
         function gen_code(obj)
-%             for i_key = keys(obj.tx_normal_dict)
-%                 model_path = obj.output_model_path;
-%                 model_name = ['cantx_0x' i_key{1}];
-%                 per_save_path = [model_path '\' model_name];
-%                 obj.asr_mbd.gen_tx_normal_code(per_save_path, model_name);
-%             end
+            for i_key = keys(obj.tx_normal_dict)
+                model_path = obj.output_model_path;
+                model_name = ['cantx_0x' i_key{1}];
+                per_save_path = [model_path '\' model_name];
+                obj.asr_mbd.gen_tx_normal_code(per_save_path, model_name);
+            end
+            for i_key = keys(obj.rx_normal_dict)
+                model_path = obj.output_model_path;
+                model_name = ['canrx_0x' i_key{1}];
+                per_save_path = [model_path '\' model_name];
+                obj.asr_mbd.gen_rx_normal_code(per_save_path, model_name);
+            end
         end
 
     end
