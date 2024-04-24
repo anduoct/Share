@@ -5,7 +5,7 @@ classdef autoMBDCanRx < autoMBD
         lib_normal_mdl
         lib_error_sub
         normal_sub_base_pos
-        normal_port_interval
+        normal_sub_port_interval
         ext_blk_base_pos
         ext_blk_interval
         preprocess_sub_base_pos
@@ -21,7 +21,7 @@ classdef autoMBDCanRx < autoMBD
             obj.lib_normal_mdl = 'Lib/canrx_normal';
             obj.lib_error_sub = 'Lib/canrx_error';
             obj.normal_sub_base_pos = [240 25 650 45];
-            obj.normal_port_interval = 30;
+            obj.normal_sub_port_interval = 30;
             obj.ext_blk_base_pos = [310 20 390 60];
             obj.ext_blk_interval = 70;
             obj.preprocess_sub_base_pos = [215 100 470 200];
@@ -99,8 +99,8 @@ classdef autoMBDCanRx < autoMBD
             pre_in_pos = get_param(pre_in_hdls(1), 'Position');
             frame_pos = [pre_in_pos(1)-240, pre_in_pos(2)-15, pre_in_pos(1)-160, pre_in_pos(2)+15];
             set_param([subsystem_path '/canframe'], 'Position', frame_pos)
-            sel_pos = [pre_in_pos(1)-70, pre_in_pos(2)-15, pre_in_pos(1)-65, pre_in_pos(2)+15];
-            set_param([subsystem_path '/Bus Selector'], 'Position', sel_pos)
+            % sel_pos = [pre_in_pos(1)-70, pre_in_pos(2)-15, pre_in_pos(1)-65, pre_in_pos(2)+15];
+            % set_param([subsystem_path '/Bus Selector'], 'Position', sel_pos)
             %% 配置 canrx preprocess/postprocess subsystem 连线
             for i_sig = 1:length(obj.can_info.Row)
                 sig_name = ['CanRx_' obj.can_info.Row{i_sig}];
@@ -135,7 +135,7 @@ classdef autoMBDCanRx < autoMBD
                 outport_pos =  [out_pos(1)+170, out_pos(2)-7, out_pos(1)+200, out_pos(2)+7];
                 add_block('simulink/Sinks/Out1', [subsystem_path '/' sig_name], 'Name', sig_name, 'Position', outport_pos)
                 % 添加连线
-                add_line(subsystem_path, 'canframe/1', [ext_name '/1'], 'autorouting','on'); 
+                add_line(subsystem_path, 'canframe_merge/1', [ext_name '/1'], 'autorouting','on'); 
                 add_line(subsystem_path, [ext_name '/1'], [conversion_name '/1'], 'autorouting','on'); 
                 add_line(subsystem_path, [conversion_name '/1'], [sig_name '/1'], 'autorouting','on');
             end
