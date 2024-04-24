@@ -1,4 +1,4 @@
-classdef autosarCan < handle
+classdef autoCan < handle
 
     properties
         tx_normal_dict
@@ -8,13 +8,14 @@ classdef autosarCan < handle
         dd_sht_tbl
         cantx_xls_opt
         canrx_xls_opt
-        asr_mbd
+        mbd_cantx
+        mbd_canrx
         output_model_path
         output_code_path
     end
 
     methods
-        function obj = autosarCan(dd_xls_path, model_path, code_path)
+        function obj = autoCan(dd_xls_path, model_path, code_path)
             bdclose all
 
             obj.output_model_path = model_path;
@@ -52,7 +53,8 @@ classdef autosarCan < handle
             cantx_var_nums = 8;
             obj.cantx_xls_opt = spreadsheetImportOptions("NumVariables", cantx_var_nums, "VariableNames", cantx_var_names, "VariableTypes", cantx_var_types, "VariableNamingRule", cantx_var_namerules, "DataRange", cantx_var_range, "RowNamesRange", cantx_row_names_range);
 
-            obj.asr_mbd = autosarMBD(obj.dd_sht_tbl);
+            obj.mbd_cantx = autoMBDCanTx(obj.dd_sht_tbl);
+            obj.mbd_canrx = autoMBDCanRx(obj.dd_sht_tbl);
         end
 
         function load(obj, in_xls_path)
@@ -103,14 +105,14 @@ classdef autosarCan < handle
                 model_name = ['cantx_0x' i_key{1}];
                 model_info = obj.tx_normal_dict(i_key{1});
                 per_save_path = [model_path '\' model_name];
-                obj.asr_mbd.gen_tx_normal_model(per_save_path, model_name, model_info)
+                obj.mbd_cantx.gen_normal_model(per_save_path, model_name, model_info)
             end
             for i_key = keys(obj.rx_normal_dict)
                 model_path = obj.output_model_path;
                 model_name = ['canrx_0x' i_key{1}];
                 model_info = obj.rx_normal_dict(i_key{1});
                 per_save_path = [model_path '\' model_name];
-                obj.asr_mbd.gen_rx_normal_model(per_save_path, model_name, model_info)
+                obj.mbd_canrx.gen_normal_model(per_save_path, model_name, model_info)
             end
         end
 
@@ -119,13 +121,13 @@ classdef autosarCan < handle
                 model_path = obj.output_model_path;
                 model_name = ['cantx_0x' i_key{1}];
                 per_save_path = [model_path '\' model_name];
-                obj.asr_mbd.gen_tx_normal_code(per_save_path, model_name);
+                obj.mbd_cantx.gen_normal_code(per_save_path, model_name);
             end
             for i_key = keys(obj.rx_normal_dict)
                 model_path = obj.output_model_path;
                 model_name = ['canrx_0x' i_key{1}];
                 per_save_path = [model_path '\' model_name];
-                obj.asr_mbd.gen_rx_normal_code(per_save_path, model_name);
+                obj.mbd_canrx.gen_normal_code(per_save_path, model_name);
             end
         end
 
