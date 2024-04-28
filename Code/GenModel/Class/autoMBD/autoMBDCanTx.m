@@ -19,8 +19,8 @@ classdef autoMBDCanTx < autoMBD
         sig_sub_interval
     end
     methods
-        function obj = autoMBDCanTx(dd_sht_tbl)
-            obj = obj@autoMBD(dd_sht_tbl);
+        function obj = autoMBDCanTx(ram_sht_tbl, rom_sht_tbl)
+            obj = obj@autoMBD(ram_sht_tbl, rom_sht_tbl);
             obj.can_sldd = which('cantx.sldd');
             obj.normal_mdl = 'Lib/cantx_normal';
             obj.error_sub = 'Lib/cantx_error';
@@ -169,10 +169,10 @@ classdef autoMBDCanTx < autoMBD
             set_param(subsystem_path, 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name');
         end
 
-        function system_hdl = add_sig_subsystem(obj, subsystem_path, subsystem_pos, sig_case_info)
+        function system_hdl = add_sig_subsystem(obj, subsystem_path, subsystem_pos, sig_info)
             %% 通过表格判读添加 sig subsystem 类型
-            sig_name = sig_case_info.Row{1};
-            if contains(sig_case_info.("Invalid Status"), 'always FALSE')
+            sig_name = sig_info.Row{1};
+            if contains(sig_info.("Invalid Status"), 'always FALSE')
                 system_hdl = add_block(obj.noerror_sub, subsystem_path, 'Position', subsystem_pos);
             else
                 system_hdl = add_block(obj.error_sub, subsystem_path, 'Position', subsystem_pos);
@@ -189,8 +189,10 @@ classdef autoMBDCanTx < autoMBD
             % mask_values = {sig_case_info.Offset, sig_case_info.Factor};
             % set_param([subsystem_path '/Phy2Raw'], 'MaskValues', mask_values);
             %% 配置上下限
-            max_value = strcat("(", sig_case_info.Max, "- (", sig_case_info.Offset, ")) / (", sig_case_info.Factor, ")");
-            min_value = strcat("(", sig_case_info.Min, "- (", sig_case_info.Offset, ")) / (", sig_case_info.Factor, ")");
+%             max_value = strcat("(", sig_info.Max, "- (", sig_case_info.Offset, ")) / (", sig_case_info.Factor, ")");
+%             min_value = strcat("(", sig_info.Min, "- (", sig_case_info.Offset, ")) / (", sig_case_info.Factor, ")");
+            max_value = sig_info.Max;
+            min_value = sig_info.Min;
             set_param([subsystem_path '/Max'], 'Value', max_value);
             set_param([subsystem_path '/Min'], 'Value', min_value);
             %% 配置 sig subsystem 缩放大小及代码生成格式

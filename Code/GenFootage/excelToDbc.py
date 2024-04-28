@@ -575,12 +575,12 @@ class xlsMatlab:
     def __init__(self) -> None:
         self.TxNormalIdxHeader = [['No.', 'FrameID', 'Type', 'Description']]
         self.TxNormalIdx = []
-        self.TxNormalInfoHeader = [['Signal', 'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Output']]
+        self.TxNormalInfoHeader = [['Signal', 'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Output Can Frame']]
         self.TxNormalInfo = {}
 
         self.RxNormalIdxHeader = [['No.', 'FrameID', 'Type', 'Description']]
         self.RxNormalIdx = []
-        self.RxNormalInfoHeader = [['Signal', 'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Input', 'Start Bit', 'Length']]
+        self.RxNormalInfoHeader = [['Signal', 'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Input Can Frame', 'Start Bit', 'Length']]
         self.RxNormalInfo = {}
 
     def load(self, xls_db):
@@ -604,9 +604,9 @@ class xlsMatlab:
                 else:
                     i_sig_info = [i_sig.Para, i_sig.LSB, i_sig.Offset, i_sig.Max, i_sig.Min]
                     if msg_type == 'TxNormal':
-                        i_sig_info = i_sig_info + [i_sig.InvSta] + [i_sig.ErrIndVal] + ['CanTx_' + i_sig.Para]
+                        i_sig_info = i_sig_info + [i_sig.InvSta] + [i_sig.ErrIndVal] + ['can_tx_' + i_sig.Para]
                     elif msg_type == 'RxNormal':
-                        i_sig_info = i_sig_info + [i_sig.InvSta] + [i_sig.ErrIndVal] + ['CanRx_' + i_sig.Para] + [i_sig.StartBit]+ [i_sig.Len]
+                        i_sig_info = i_sig_info + [i_sig.InvSta] + [i_sig.ErrIndVal] + [i_sig.Para.replace('can_gmlan_rx_', '')] + [i_sig.StartBit]+ [i_sig.Len]
                     sig_info.append(i_sig_info)
             msg_info[i_msg.CanID] = sig_info
         return msg_idx, msg_info

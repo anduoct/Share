@@ -15,8 +15,8 @@ classdef autoMBDCanRx < autoMBD
     end
 
     methods
-        function obj = autoMBDCanRx(dd_sht_tbl)
-            obj = obj@autoMBD(dd_sht_tbl);
+        function obj = autoMBDCanRx(ram_sht_tbl, rom_sht_tbl)
+            obj = obj@autoMBD(ram_sht_tbl, rom_sht_tbl);
             obj.can_sldd = which('canrx.sldd');
             obj.lib_normal_mdl = 'Lib/canrx_normal';
             obj.lib_error_sub = 'Lib/canrx_error';
@@ -103,7 +103,7 @@ classdef autoMBDCanRx < autoMBD
             % set_param([subsystem_path '/Bus Selector'], 'Position', sel_pos)
             %% 配置 canrx preprocess/postprocess subsystem 连线
             for i_sig = 1:length(obj.can_info.Row)
-                sig_name = ['CanRx_' obj.can_info.Row{i_sig}];
+                sig_name = obj.can_info.Input{i_sig};
                 pre_sig_path = [sig_prepocess_sub_dst_path '/' sig_name];
                 post_sig_path = [sig_postprocess_sub_path '/' sig_name];
                 pre_sig_num = str2double(get_param(pre_sig_path, 'Port'));
@@ -118,7 +118,7 @@ classdef autoMBDCanRx < autoMBD
             system_hdl = get_param(subsystem_path, 'Handle');
             %% 循环添加 Extract Block 解析逻辑
             for i_sig = 1:length(obj.can_info.Row)
-                sig_name = ['CanRx_' obj.can_info.Row{i_sig}];
+                sig_name = obj.can_info.Input{i_sig};
                 % 添加 Extract Block 并配置其属性
                 sig_start_bit = str2double(obj.can_info.("Start Bit"){i_sig});
                 sig_len = str2double(obj.can_info.Length{i_sig});
@@ -157,7 +157,7 @@ classdef autoMBDCanRx < autoMBD
             for i_sig = 1:length(obj.can_info.Row)
                 sig_info = obj.can_info(i_sig,:);
                 sig_name = sig_info.Row{1};
-                sig_sub_path = [subsystem_path '/sig_' sig_name];
+                sig_sub_path = [subsystem_path '/' sig_name '_subsystem'];
                 sig_subsystem_pos = [obj.sig_sub_base_pos(1), obj.sig_sub_base_pos(2) + i_sig * obj.sig_sub_interval, obj.sig_sub_base_pos(3), obj.sig_sub_base_pos(4) + i_sig * obj.sig_sub_interval];
                 % 添加 sig subsystem
                 obj.add_sig_subsystem(sig_sub_path, sig_info);
@@ -172,19 +172,26 @@ classdef autoMBDCanRx < autoMBD
 
         function system_hdl = add_sig_subsystem(obj, subsystem_path, sig_info)
             %% 通过表格判读添加 sig subsystem 类型
-            sig_name = sig_info.Row{1};
-            inport_name = ['CanRx_' sig_name];
+            gmlan_name = sig_info.Row{1};
+            sig_name = sig_info.Input{1};
+            gmlan_invalid_name = ['can_gmlan_rx_invalid_' sig_name];
             inv_name = convertStringsToChars(sig_info.('Invalid Status'));
             system_hdl = add_block(obj.lib_error_sub, subsystem_path);
-            %% 修改 can in 名
-            obj.modify_port_line_name('In', subsystem_path, 'canrx_raw', inport_name)   
-            %% 修改 can out 名
-            obj.modify_port_line_name('Out', subsystem_path, 'canrx_phy', sig_name)
-            %% 修改 can error 名
-            obj.modify_port_line_name('In', subsystem_path, 'canrx_inv_status', inv_name)
+            %% 修改 can_rx 名
+            obj.modify_port_line_name('In', subsystem_path, 'can_rx', sig_name)   
+            %% 修改 can gmlan rx 名
+            obj.modify_port_line_name('Out', subsystem_path, 'can_gmlan_rx_xxxx', gmlan_name)
+            %% 修改 inv xxxx 名
+            obj.modify_port_line_name('In', subsystem_path, 'inv_xxxx', inv_name)
+            %% 修改 can gmlan rx invalid xxxx 名
+            obj.modify_port_line_name('Out', subsystem_path, 'can_gmlan_rx_invalid_xxxx', gmlan_invalid_name)
+            %% 修改 K_CAN_GMLAN_RX_DEFAULT_xxxx 名 
+            set_param([subsystem_path '/K_CAN_GMLAN_RX_DEFAULT_xxxx'], 'Name', sig_info.('Error Indicator Value'), 'Value', sig_info.('Error Indicator Value'));
             %% 配置上下限
-            max_value = strcat("(", sig_info.Max, "- (", sig_info.Offset, ")) / (", sig_info.Factor, ")");
-            min_value = strcat("(", sig_info.Min, "- (", sig_info.Offset, ")) / (", sig_info.Factor, ")");
+            % max_value = strcat("(", sig_info.Max, "- (", sig_case_info.Offset, ")) / (", sig_case_info.Factor, ")");
+            % min_value = strcat("(", sig_info.Min, "- (", sig_case_info.Offset, ")) / (", sig_case_info.Factor, ")");
+            max_value = sig_info.Max;
+            min_value = sig_info.Min;
             set_param([subsystem_path '/Max'], 'Value', max_value);
             set_param([subsystem_path '/Min'], 'Value', min_value);
             %% 配置 sig subsystem 缩放大小及代码生成格式
@@ -203,10 +210,13 @@ classdef autoMBDCanRx < autoMBD
             sldd_path = [save_path '\' model_name '.sldd'];
             rx_sldd_obj = Simulink.data.dictionary.open(sldd_path);
             rx_design_data = getSection(rx_sldd_obj,'Design Data');
-            %% 绑定CanRx信号
+            %% 添加Cali
+            obj.add_parameter_to_sldd(obj.can_info, rx_design_data, "ExportedGlobal");
+            %% 绑定Can Frame信号
             rx_sig_prepocess_subsystem_name = [model_name '/' model_name '_main/' model_name '_preprocess'];
-            obj.add_outport_resolve_on_line(rx_sig_prepocess_subsystem_name, obj.can_info, rx_design_data)
-            obj.add_subsystem_port_resolve(model_name, obj.can_info, rx_design_data)
+            obj.add_outport_canframe_resolve_on_line(rx_sig_prepocess_subsystem_name, obj.can_info, rx_design_data, "Model default")
+            obj.add_inport_dd_resolve_on_line(model_name, rx_design_data, 'ImportedExtern');
+            obj.add_outport_dd_resolve_on_port(model_name, rx_design_data, 'ExportedGlobal');
             %% 保存并关闭模型
             save_system(model_name);
             rx_sldd_obj.saveChanges()

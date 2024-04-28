@@ -1,11 +1,13 @@
 classdef autoMBD < handle
     properties
-        dd_sht_tbl
+        ram_sht_tbl
+        rom_sht_tbl
     end
 
     methods
-        function obj = autoMBD(dd_sht_tbl)
-            obj.dd_sht_tbl = dd_sht_tbl;
+        function obj = autoMBD(ram_sht_tbl, rom_sht_tbl)
+            obj.ram_sht_tbl = ram_sht_tbl;
+            obj.rom_sht_tbl = rom_sht_tbl;
         end
 
         function clear_all(~)
@@ -103,70 +105,140 @@ classdef autoMBD < handle
             setActiveConfigSet(model_name, sldd_name);
         end
 
-        function add_subsystem_port_resolve(obj, subsystem_path, can_info, design_data)
-            obj.add_inport_resolve_on_line(subsystem_path, can_info, design_data);
-            obj.add_outport_resolve_on_port(subsystem_path, can_info, design_data);
+        function add_subsystem_port_resolve(obj, subsystem_path, design_data)
+            obj.add_inport_dd_resolve_on_line(subsystem_path, design_data, 'ExportedGlobal');
+            obj.add_outport_dd_resolve_on_port(subsystem_path, design_data, 'ExportedGlobal');
         end
 
-        function add_inport_resolve_on_line(obj, subsystem_path, can_info, design_data)
+        function add_inport_dd_resolve_on_line(obj, subsystem_path, design_data, storage_class)
             inport_path_list = find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Inport');
             inport_name_list = get_param(inport_path_list, 'NAME');
             inport_line_hdls = get_param(inport_path_list, 'LineHandles');
             for i_hdl = 1:length(inport_line_hdls)
-                set_param(inport_line_hdls{i_hdl}.Outport, 'Name', inport_name_list{i_hdl});
+                sig_name = inport_name_list{i_hdl};
+                if ~ismember(sig_name, obj.ram_sht_tbl.Row)
+                    continue
+                end
+                inter_name = obj.ram_sht_tbl.Label(sig_name);
+                set_param(inport_line_hdls{i_hdl}.Outport, 'Name', inter_name);
                 set(inport_line_hdls{i_hdl}.Outport, 'MustResolveToSignalObject', 1);
-                obj.add_signal_to_sldd(inport_name_list{i_hdl}, can_info, design_data);
+                obj.add_dd_signal_to_sldd(sig_name,  design_data, storage_class);
             end
         end
 
-        function add_outport_resolve_on_line(obj, subsystem_path, can_info, design_data)
+        function add_outport_dd_resolve_on_line(obj, subsystem_path,  design_data, storage_class)
             outport_path_list = find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Outport');
             outport_name_list = get_param(outport_path_list, 'NAME');
             outport_line_hdls = get_param(outport_path_list, 'LineHandles');
             for i_hdl = 1:length(outport_line_hdls)
-                set_param(outport_line_hdls{i_hdl}.Inport, 'Name', outport_name_list{i_hdl});
+                sig_name = outport_name_list{i_hdl};
+                if ~ismember(sig_name, obj.ram_sht_tbl.Row)
+                    continue
+                end
+                inter_name = obj.ram_sht_tbl.Label(sig_name);
+                set_param(outport_line_hdls{i_hdl}.Inport, 'Name', inter_name);
                 set(outport_line_hdls{i_hdl}.Inport, 'MustResolveToSignalObject', 1);
-                obj.add_signal_to_sldd(outport_name_list{i_hdl}, can_info, design_data);
+                obj.add_dd_signal_to_sldd(sig_name, design_data, storage_class);
             end
         end
 
-        function add_outport_resolve_on_port(obj, subsystem_path, can_info, design_data)
+        function add_outport_dd_resolve_on_port(obj, subsystem_path, design_data, storage_class)
             outport_path_list = find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Outport');
             outport_name_list = get_param(outport_path_list, 'NAME');
             for i_hdl = 1:length(outport_path_list)
-                set_param(outport_path_list{i_hdl}, 'SignalName', outport_name_list{i_hdl});
+                sig_name = outport_name_list{i_hdl};
+                if ~ismember(sig_name, obj.ram_sht_tbl.Row)
+                    continue
+                end
+                inter_name = obj.ram_sht_tbl.Label(sig_name);
+                set_param(outport_path_list{i_hdl}, 'SignalName', inter_name);
                 hdl = get_param(outport_path_list{i_hdl}, 'Handle');
                 set(hdl, 'MustResolveToSignalObject', 1);
-                obj.add_signal_to_sldd(outport_name_list{i_hdl}, can_info, design_data);
+                obj.add_dd_signal_to_sldd(sig_name, design_data, storage_class);
             end
         end
 
-        function add_signal_to_sldd(obj, signal_name, can_info, design_data)
+        function add_dd_signal_to_sldd(obj, signal_name, design_data, storage_class)
             sig = Simulink.Signal;
-            sig.CoderInfo.StorageClass = "ExportedGlobal";
-            sig_info = obj.dd_sht_tbl(signal_name,:);
-%             strcmp(signal_name(1:6), "CanTx_") || strcmp(signal_name(1:6), "CanRx_")
-            if strcmp(sig_info.Resolution, "1")
-                sig.DataType = sig_info.Attribute;
-            else
-                tx_info = can_info(signal_name,:);
-                if strcmp(sig_info.Attribute, "UB")
-                    sig.DataType = strcat("fixdt(0, 8, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
-                elseif strcmp(sig_info.Attribute, "UW")
-                    sig.DataType = strcat("fixdt(0, 16, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
-                elseif strcmp(sig_info.Attribute, "UD")
-                    sig.DataType = strcat("fixdt(0, 32, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
-                elseif strcmp(sig_info.Attribute, "SB")
-                    sig.DataType = strcat("fixdt(0, 8, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
-                elseif strcmp(sig_info.Attribute, "SW")
-                    sig.DataType = strcat("fixdt(0, 16, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
-                elseif strcmp(sig_info.Attribute, "SD")
-                    sig.DataType = strcat("fixdt(0, 32, ", sig_info.numerator , "/" , sig_info.denominator, ", ", tx_info.Offset, ")");
-                end
+            sig.CoderInfo.StorageClass = storage_class;
+            sig_info = obj.ram_sht_tbl(signal_name,:);
+            inter_name = sig_info.Label;
+            if strcmp(sig_info.Attribute, "UB")
+                sig.DataType = strcat("fixdt(0, 8, ", sig_info.numerator , "/" , sig_info.denominator, ")");
+            elseif strcmp(sig_info.Attribute, "UW")
+                sig.DataType = strcat("fixdt(0, 16, ", sig_info.numerator , "/" , sig_info.denominator, ")");
+            elseif strcmp(sig_info.Attribute, "UD")
+                sig.DataType = strcat("fixdt(0, 32, ", sig_info.numerator , "/" , sig_info.denominator, ")");
+            elseif strcmp(sig_info.Attribute, "SB")
+                sig.DataType = strcat("fixdt(1, 8, ", sig_info.numerator , "/" , sig_info.denominator, ")");
+            elseif strcmp(sig_info.Attribute, "SW")
+                sig.DataType = strcat("fixdt(1, 16, ", sig_info.numerator , "/" , sig_info.denominator, ")");
+            elseif strcmp(sig_info.Attribute, "SD")
+                sig.DataType = strcat("fixdt(1, 32, ", sig_info.numerator , "/" , sig_info.denominator, ")");
             end
-            sig.Max = str2double(sig_info.("Max（Internal）"));
-            sig.Min = str2double(sig_info.("Min（Internal）"));
-            addEntry(design_data, signal_name, sig)
+            % sig.Max = str2double(sig_info.("Max（Internal）"));
+            % sig.Min = str2double(sig_info.("Min（Internal）"));
+            addEntry(design_data, inter_name, sig)
+        end
+
+
+        function add_outport_canframe_resolve_on_line(obj, subsystem_path, caninfo, design_data, storage_class)
+            outport_path_list = find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Outport');
+            outport_name_list = get_param(outport_path_list, 'NAME');
+            outport_line_hdls = get_param(outport_path_list, 'LineHandles');
+            for i_hdl = 1:length(outport_line_hdls)
+                outport_name = outport_name_list{i_hdl};
+                [is_member, pos] = ismember(outport_name, caninfo.Input);
+                if ~is_member
+                    continue
+                else
+                    sig_name = caninfo.Row{pos};
+                end
+                set_param(outport_line_hdls{i_hdl}.Inport, 'Name', outport_name);
+                set(outport_line_hdls{i_hdl}.Inport, 'MustResolveToSignalObject', 1);
+                obj.add_canframe_signal_to_sldd(sig_name, caninfo, design_data, storage_class);
+            end
+        end
+
+        function add_canframe_signal_to_sldd(~, signal_name, caninfo, design_data, storage_class)
+            sig = Simulink.Signal;
+            sig.CoderInfo.StorageClass = storage_class;
+            sig_info = caninfo(signal_name,:);
+            if str2double(sig_info.Min) < 0
+                sign_flag = "1";
+            else
+                sign_flag = "0";
+            end
+            sig.DataType = strcat("fixdt(",sign_flag,",",sig_info.Length,",",sig_info.Factor,",",sig_info.Offset,")");
+            % sig.Max = str2double(sig_info.Max);
+            % sig.Min = str2double(sig_info.Min);
+            outport_name = sig_info.Input{1};
+            addEntry(design_data, outport_name, sig)
+        end
+
+
+        function add_parameter_to_sldd(obj, caninfo, design_data, storage_class)
+            for i_sig = 1:length(caninfo.Row)
+                param_name = caninfo.('Error Indicator Value'){i_sig};
+                param_info = obj.rom_sht_tbl(param_name,:);
+                param = Simulink.Parameter;
+                param.CoderInfo.StorageClass = storage_class;
+                if strcmp(param_info.Attribute, "UB")
+                    param.DataType = strcat("fixdt(0, 8, ", param_info.numerator , "/" , param_info.denominator, ")");
+                elseif strcmp(param_info.Attribute, "UW")
+                    param.DataType = strcat("fixdt(0, 16, ", param_info.numerator , "/" , param_info.denominator, ")");
+                elseif strcmp(param_info.Attribute, "UD")
+                    param.DataType = strcat("fixdt(0, 32, ", param_info.numerator , "/" , param_info.denominator, ")");
+                elseif strcmp(param_info.Attribute, "SB")
+                    param.DataType = strcat("fixdt(1, 8, ", param_info.numerator , "/" , param_info.denominator, ")");
+                elseif strcmp(param_info.Attribute, "SW")
+                    param.DataType = strcat("fixdt(1, 16, ", param_info.numerator , "/" , param_info.denominator, ")");
+                elseif strcmp(param_info.Attribute, "SD")
+                    param.DataType = strcat("fixdt(1, 32, ", param_info.numerator , "/" , param_info.denominator, ")");
+                end
+                param.Value = str2double(param_info.('Initial（Internal）'));
+                addEntry(design_data, param_name, param)
+            end
         end
     end
 end
