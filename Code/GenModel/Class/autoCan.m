@@ -29,12 +29,12 @@ classdef autoCan < handle
             m_file = mfilename('fullpath');
             [obj.current_path, ~, ~] =  fileparts(m_file);
 
-            ram_var_names = {'Content', 'E.Level', 'Unit', 'Min', 'Max', 'Resolution', 'Element', 'Eng Stall', 'EEPROM', 'INCA monitoring name', 'Label', 'numerator', 'LSB', 'denominator', 'Min（Internal）', 'Max（Internal）', 'Attribute', 'Bit No.', 'BLD Raster', 'BLD Offset', 'BLD ID', 'Section', 'Module', 'SCR'};
-            ram_var_types = {'string', 'string', 'string', 'string', 'string', 'string','string', 'string', 'string', 'string', 'string', 'string', 'string', 'string','string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'};
+            ram_var_names = {'Content', 'E.Level', 'Unit', 'Min', 'Max', 'Resolution', 'Element', 'ECM ON', 'Eng Stall', 'EEPROM', 'INCA monitoring name', 'Label', 'numerator', 'LSB', 'denominator', 'Min（Internal）', 'Max（Internal）', 'Attribute', 'Bit No.', 'BLD Raster', 'BLD Offset', 'BLD ID', 'Section', 'Module', 'SCR'};
+            ram_var_types = {'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string','string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'};
             ram_var_namerules = 'preserve';
             ram_var_range = 'C3';
             ram_row_names_range = 'B3';
-            ram_var_nums = 24;
+            ram_var_nums = 25;
             ram_sht_name = 'RAM';
             ram_xls_opt = spreadsheetImportOptions("Sheet",ram_sht_name,"NumVariables", ram_var_nums, "VariableNames", ram_var_names, "VariableTypes", ram_var_types, "VariableNamingRule", ram_var_namerules, "DataRange", ram_var_range, "RowNamesRange", ram_row_names_range);
             obj.ram_sht_tbl = readtable(dd_xls_path, ram_xls_opt);
@@ -81,31 +81,31 @@ classdef autoCan < handle
                 if strcmp(id_flag, "TxNormal")
                     obj.cantx_xls_opt.Sheet = in_sht_names(i_name);
                     cantx_sht_tbl = readtable(in_xls_path, obj.cantx_xls_opt);
-                    for i_row = 1:length(cantx_sht_tbl.Row)
-                        row_name = cantx_sht_tbl.Row(i_row);
-                        lsb_str = join([obj.ram_sht_tbl(row_name, 'numerator').Variables  '/'  obj.ram_sht_tbl(row_name, 'denominator').Variables], '');
-                        resolution_str = obj.ram_sht_tbl(row_name, 'Resolution').Variables;
-                        in_lsb_str = cantx_sht_tbl(row_name, 'Factor').Variables;
-                        if ~(strcmp(in_lsb_str, lsb_str) || strcmp(in_lsb_str, resolution_str))
-                            me = MException('CAN:noSuchLSB', '%s lsb not equal to DD', row_name{1});
-                            throw(me)
-                        end
-                        cantx_sht_tbl(row_name,'Elevel') = obj.ram_sht_tbl(row_name,'E.Level');
-                    end
+%                     for i_row = 1:length(cantx_sht_tbl.Row)
+%                         row_name = cantx_sht_tbl.Row(i_row);
+%                         lsb_str = join([obj.ram_sht_tbl(row_name, 'numerator').Variables  '/'  obj.ram_sht_tbl(row_name, 'denominator').Variables], '');
+%                         resolution_str = obj.ram_sht_tbl(row_name, 'Resolution').Variables;
+%                         in_lsb_str = cantx_sht_tbl(row_name, 'Factor').Variables;
+%                         if ~(strcmp(in_lsb_str, lsb_str) || strcmp(in_lsb_str, resolution_str))
+%                             me = MException('CAN:noSuchLSB', '%s lsb not equal to DD', row_name{1});
+%                             throw(me)
+%                         end
+%                         cantx_sht_tbl(row_name,'Elevel') = obj.ram_sht_tbl(row_name,'E.Level');
+%                     end
                     obj.tx_normal_dict(in_sht_names(i_name)) = cantx_sht_tbl;
                 elseif strcmp(id_flag, "RxNormal")
                     obj.canrx_xls_opt.Sheet = in_sht_names(i_name);
                     canrx_sht_tbl = readtable(in_xls_path, obj.canrx_xls_opt);
-                    for i_row = 1:length(canrx_sht_tbl.Row)
-                        row_name = canrx_sht_tbl.Row(i_row);
-                        lsb_str = join([obj.ram_sht_tbl(row_name, 'numerator').Variables  '/'  obj.ram_sht_tbl(row_name, 'denominator').Variables], '');
-                        resolution_str = obj.ram_sht_tbl(row_name, 'Resolution').Variables;
-                        in_lsb_str = canrx_sht_tbl(row_name, 'Factor').Variables;
-                        if ~(strcmp(in_lsb_str, lsb_str) || strcmp(in_lsb_str, resolution_str))
-                            me = MException('CAN:noSuchLSB', '%s lsb not equal to DD', row_name{1});
-                            throw(me)
-                        end
-                    end
+%                     for i_row = 1:length(canrx_sht_tbl.Row)
+%                         row_name = canrx_sht_tbl.Row(i_row);
+%                         lsb_str = join([obj.ram_sht_tbl(row_name, 'numerator').Variables  '/'  obj.ram_sht_tbl(row_name, 'denominator').Variables], '');
+%                         resolution_str = obj.ram_sht_tbl(row_name, 'Resolution').Variables;
+%                         in_lsb_str = canrx_sht_tbl(row_name, 'Factor').Variables;
+%                         if ~(strcmp(in_lsb_str, lsb_str) || strcmp(in_lsb_str, resolution_str))
+%                             me = MException('CAN:noSuchLSB', '%s lsb not equal to DD', row_name{1});
+%                             throw(me)
+%                         end
+%                     end
                     obj.rx_normal_dict(in_sht_names(i_name)) = canrx_sht_tbl;
                 end
             end

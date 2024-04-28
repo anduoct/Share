@@ -215,8 +215,9 @@ classdef autoMBDCanRx < autoMBD
             %% 绑定Can Frame信号
             rx_sig_prepocess_subsystem_name = [model_name '/' model_name '_main/' model_name '_preprocess'];
             obj.add_outport_canframe_resolve_on_line(rx_sig_prepocess_subsystem_name, obj.can_info, rx_design_data, "Model default")
-            obj.add_inport_dd_resolve_on_line(model_name, rx_design_data, 'ImportedExtern');
-            obj.add_outport_dd_resolve_on_port(model_name, rx_design_data, 'ExportedGlobal');
+            rx_sig_main_subsystem_name = [model_name '/' model_name '_main'];
+            obj.add_inport_dd_resolve_on_line(rx_sig_main_subsystem_name, rx_design_data, 'ImportedExtern');
+            obj.add_outport_dd_resolve_on_line(rx_sig_main_subsystem_name, rx_design_data, 'ExportedGlobal');
             %% 保存并关闭模型
             save_system(model_name);
             rx_sldd_obj.saveChanges()
