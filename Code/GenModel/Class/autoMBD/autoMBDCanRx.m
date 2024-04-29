@@ -12,6 +12,9 @@ classdef autoMBDCanRx < autoMBD
         preprocess_sub_port_interval
         sig_sub_base_pos
         sig_sub_interval
+        const_blk_base_pos
+        state_blk_base_pos
+        init_sub_interval
     end
 
     methods
@@ -28,6 +31,9 @@ classdef autoMBDCanRx < autoMBD
             obj.preprocess_sub_port_interval = 30;
             obj.sig_sub_base_pos = [-125 25 530 85];
             obj.sig_sub_interval = 90;
+            obj.const_blk_base_pos = [-70 114 255 136];
+            obj.state_blk_base_pos = [obj.const_blk_base_pos(1)+450, obj.const_blk_base_pos(2)+1, obj.const_blk_base_pos(3)+160, obj.const_blk_base_pos(4)-1];
+            obj.init_sub_interval = 40;
         end
 
         function gen_normal_model(obj, save_path, model_name, model_info)            
@@ -50,15 +56,21 @@ classdef autoMBDCanRx < autoMBD
             %% 配置 rx normal model 代码导出方式 sldd 及 缩放率
             set_param(normal_mdl, 'SetExecutionDomain', 'on','ExecutionDomainType', 'ExportFunction', 'IsExportFunctionModel', 'on');
             set_param(normal_mdl, 'Datadictionary',[model_name '.sldd'])
-            %% 添加 rx normal subsystem
-            normal_sub_path = [model_name '/' model_name '_main'];
-            obj.add_normal_subsystem(normal_sub_path);
-            % 配置 rx normal subsystem 位置
-            port_num = length(get_param(normal_sub_path, 'PortHandles').Outport);
-            normal_sub_pos = obj.normal_sub_base_pos + [0 0 0 obj.normal_sub_port_interval*port_num];
-            set_param(normal_sub_path, 'Position', normal_sub_pos);
+            %% 添加 rx normal main
+            normal_main_path = [model_name '/' model_name '_main'];
+            obj.add_normal_subsystem(normal_main_path);
+            % 配置 rx normal main 位置
+            port_num = length(get_param(normal_main_path, 'PortHandles').Outport);
+            normal_main_pos = obj.normal_sub_base_pos + [0 0 0 obj.normal_sub_port_interval*port_num];
+            set_param(normal_main_path, 'Position', normal_main_pos);
             % 添加 tx normal model 输入
-            obj.add_subsystem_port(normal_sub_path);
+            obj.add_subsystem_port(normal_main_path);
+            %% 添加 rx normal init
+            normal_init_path = [model_name '/' model_name '_init'];
+            obj.add_normal_initial(normal_init_path, normal_main_path);
+            % 配置 rx normal init 位置
+            normal_init_pos = [normal_main_pos(1) normal_main_pos(2)-100 normal_main_pos(3) normal_main_pos(2)-60];
+            set_param(normal_init_path, 'Position', normal_init_pos);
             %% 配置 tx normal model 缩放大小
             set_param(normal_mdl, 'ZoomFactor', '100');
             %% 保存并关闭 rx normal model
@@ -66,6 +78,31 @@ classdef autoMBDCanRx < autoMBD
             close_system(normal_mdl);           
             %% 关闭并清除所有
             obj.clear_all();
+        end
+
+        function system_hdl = add_normal_initial(obj, init_subsystem_path, main_subsystem_path)
+            %% 添加 cantx_normal_init
+            system_hdl = add_block('simulink/User-Defined Functions/Initialize Function', init_subsystem_path);
+            %% 删除原有的 in out line
+            del_in_hdl = getSimulinkBlockHandle([init_subsystem_path '/Constant1']);
+            del_out_hdl = getSimulinkBlockHandle([init_subsystem_path '/State Writer']);
+            del_line_hdl = get_param(del_in_hdl, 'LineHandles');
+            delete_block([del_in_hdl, del_out_hdl]);
+            delete_line(del_line_hdl.Outport(1));
+            %% 添加 init
+            outport_names = get_param(find_system(main_subsystem_path, 'SearchDepth', 1, 'BlockType', 'Outport'), 'Name');
+            for i_name = 1:length(outport_names)
+                cosnt_blk_path = [init_subsystem_path '/' outport_names{i_name} '_value'];
+                cosnt_blk_pos = obj.const_blk_base_pos + [0 i_name*obj.init_sub_interval 0 i_name*obj.init_sub_interval];
+                state_blk_pos = obj.state_blk_base_pos + [0 i_name*obj.init_sub_interval 0 i_name*obj.init_sub_interval];
+                state_blk_path = [init_subsystem_path '/' outport_names{i_name} '_state'];
+                state_blk_value = [main_subsystem_path '/' outport_names{i_name}];
+                add_block('simulink/Sources/Constant', cosnt_blk_path, 'Position', cosnt_blk_pos, 'OutDataTypeStr', 'Inherit: Inherit via back propagation');
+                add_block('simulink/Signal Routing/State Writer', state_blk_path, 'Position', state_blk_pos, 'StateOwnerBlock', state_blk_value);
+                cosnt_blk_hdl = get_param(cosnt_blk_path, 'PortHandles').Outport;
+                state_blk_hdl = get_param(state_blk_path, 'PortHandles').Inport;
+                add_line(init_subsystem_path, cosnt_blk_hdl(1), state_blk_hdl(1), 'autorouting','on'); 
+            end
         end
 
         function system_hdl = add_normal_subsystem(obj, subsystem_path)
@@ -218,6 +255,9 @@ classdef autoMBDCanRx < autoMBD
             rx_sig_main_subsystem_name = [model_name '/' model_name '_main'];
             obj.add_inport_dd_resolve_on_line(rx_sig_main_subsystem_name, rx_design_data, 'ImportedExtern');
             obj.add_outport_dd_resolve_on_line(rx_sig_main_subsystem_name, rx_design_data, 'ExportedGlobal');
+            %% 修改初始值
+            init_subsystem_path = [model_name '/' model_name '_init'];
+            obj.modify_init_value(init_subsystem_path);
             %% 保存并关闭模型
             save_system(model_name);
             rx_sldd_obj.saveChanges()
@@ -225,6 +265,15 @@ classdef autoMBDCanRx < autoMBD
             close_system(model_name);
             %% 关闭并清除所有
             obj.clear_all();
+        end
+
+        function modify_init_value(obj, subsystem_path)
+            constant_names = get_param(find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Constant'), 'Name');
+            for i_name = 1:length(constant_names)
+                sig_name = constant_names{i_name}(1:end-6);
+                init_value = obj.ram_sht_tbl.("ECM ON")(sig_name);
+                set_param([subsystem_path '/' constant_names{i_name}], 'Value', init_value);
+            end
         end
     end
 end
