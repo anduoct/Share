@@ -315,7 +315,7 @@ class _xlsCanRxNormalMsg(_xlsCanMsg):
                         self.Sigs[-1].LSB = (
                             "1"
                             if str(row["LSB"]).strip() == "-"
-                            else get_true_number(str(row["LSB"]).strip())
+                            else str(row["LSB"]).strip()
                         )
                         self.Sigs[-1].Offset = (
                             "0"
@@ -335,7 +335,7 @@ class _xlsCanRxNormalMsg(_xlsCanMsg):
                         self.Sigs[-1].IsAnal = True
                     else:
                         self.Sigs[-1].Para = row["Parameter"].strip()
-                        self.Sigs[-1].LSB = get_true_number(str(row["LSB"]).strip())
+                        self.Sigs[-1].LSB = str(row["LSB"]).strip()
                         self.Sigs[-1].Offset = get_true_number(str(row["Offset"]).strip())
                         self.Sigs[-1].Min = get_true_number(str(row["Min"]).strip())
                         self.Sigs[-1].Max = get_true_number(str(row["Max"]).strip())
@@ -426,7 +426,7 @@ class _xlsCanTxNormalMsg(_xlsCanMsg):
                         self.Sigs[-1].LSB = (
                             "1"
                             if str(row["LSB"]).strip() == "-"
-                            else get_true_number(str(row["LSB"]).strip())
+                            else str(row["LSB"]).strip()
                         )
                         self.Sigs[-1].Offset = (
                             "0"
@@ -445,7 +445,7 @@ class _xlsCanTxNormalMsg(_xlsCanMsg):
                         )
                     else:
                         self.Sigs[-1].Para = row["Parameter (Padding)"]
-                        self.Sigs[-1].LSB = get_true_number(str(row["LSB"]).strip())
+                        self.Sigs[-1].LSB = str(row["LSB"]).strip()
                         self.Sigs[-1].Offset = get_true_number(str(row["Offset"]).strip())
                         self.Sigs[-1].Min = get_true_number(str(row["Min"]).strip())
                         self.Sigs[-1].Max = get_true_number(str(row["Max"]).strip())
@@ -575,12 +575,12 @@ class xlsMatlab:
     def __init__(self) -> None:
         self.TxNormalIdxHeader = [['No.', 'FrameID', 'Type', 'Description']]
         self.TxNormalIdx = []
-        self.TxNormalInfoHeader = [['Signal', 'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Output Can Frame']]
+        self.TxNormalInfoHeader = [['Signal', 'Invalid Status', 'Error Indicator Value', 'Output Can Frame', 'Factor', 'Offset', 'Max', 'Min', 'Start Bit', 'Length']]
         self.TxNormalInfo = {}
 
         self.RxNormalIdxHeader = [['No.', 'FrameID', 'Type', 'Description']]
         self.RxNormalIdx = []
-        self.RxNormalInfoHeader = [['Signal', 'Factor', 'Offset', 'Max', 'Min', 'Invalid Status', 'Error Indicator Value', 'Input Can Frame', 'Start Bit', 'Length']]
+        self.RxNormalInfoHeader = [['Signal', 'Invalid Status', 'Error Indicator Value', 'Input Can Frame', 'Factor', 'Offset', 'Max', 'Min', 'Start Bit', 'Length']]
         self.RxNormalInfo = {}
 
     def load(self, xls_db):
@@ -602,11 +602,12 @@ class xlsMatlab:
                 if i_sig.IsAnal == True:
                     continue
                 else:
-                    i_sig_info = [i_sig.Para, i_sig.LSB, i_sig.Offset, i_sig.Max, i_sig.Min]
                     if msg_type == 'TxNormal':
-                        i_sig_info = i_sig_info + [i_sig.InvSta] + [i_sig.ErrIndVal] + ['can_tx_' + i_sig.Para]
+                        i_sig_info = [i_sig.Para, i_sig.InvSta, i_sig.ErrIndVal, 'can_tx_' + i_sig.Para,  i_sig.LSB, i_sig.Offset, i_sig.Max, i_sig.Min, i_sig.StartBit, i_sig.Len]
+                        print(i_sig_info)
                     elif msg_type == 'RxNormal':
-                        i_sig_info = i_sig_info + [i_sig.InvSta] + [i_sig.ErrIndVal] + [i_sig.Para.replace('can_gmlan_rx_', '')] + [i_sig.StartBit]+ [i_sig.Len]
+                        i_sig_info = [i_sig.Para, i_sig.InvSta, i_sig.ErrIndVal, i_sig.Para.replace('can_gmlan_rx_', ''),  i_sig.LSB, i_sig.Offset, i_sig.Max, i_sig.Min, i_sig.StartBit, i_sig.Len]
+                        print(i_sig_info)
                     sig_info.append(i_sig_info)
             msg_info[i_msg.CanID] = sig_info
         return msg_idx, msg_info

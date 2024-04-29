@@ -28,7 +28,7 @@ classdef autoMBDCanRx < autoMBD
             obj.ext_blk_base_pos = [310 20 390 60];
             obj.ext_blk_interval = 70;
             obj.preprocess_sub_base_pos = [215 100 470 200];
-            obj.preprocess_sub_port_interval = 30;
+            obj.preprocess_sub_port_interval = 80;
             obj.sig_sub_base_pos = [-125 25 530 85];
             obj.sig_sub_interval = 90;
             obj.const_blk_base_pos = [-70 114 255 136];
@@ -40,9 +40,8 @@ classdef autoMBDCanRx < autoMBD
             %% 关闭并清除所有
             obj.clear_all();
             %% 获取 canrx info
-            obj.can_info = model_info;      
+            obj.can_info = model_info;
             %% 配置生成模型路径及拷贝 sldd
-            Simulink.data.dictionary.closeAll('-discard');
             if exist(save_path,'dir')
                 rmdir(save_path, 's')
             end
@@ -52,7 +51,7 @@ classdef autoMBDCanRx < autoMBD
             copyfile(obj.can_sldd, sldd_path);
             %% 新建并打开 rx normal model
             normal_mdl = new_system(model_name);
-            open_system(normal_mdl);            
+            open_system(normal_mdl);
             %% 配置 rx normal model 代码导出方式 sldd 及 缩放率
             set_param(normal_mdl, 'SetExecutionDomain', 'on','ExecutionDomainType', 'ExportFunction', 'IsExportFunctionModel', 'on');
             set_param(normal_mdl, 'Datadictionary',[model_name '.sldd'])
@@ -75,7 +74,7 @@ classdef autoMBDCanRx < autoMBD
             set_param(normal_mdl, 'ZoomFactor', '100');
             %% 保存并关闭 rx normal model
             save_system(normal_mdl, [save_path, '\' , model_name, '.slx']);
-            close_system(normal_mdl);           
+            close_system(normal_mdl);
             %% 关闭并清除所有
             obj.clear_all();
         end
@@ -136,8 +135,6 @@ classdef autoMBDCanRx < autoMBD
             pre_in_pos = get_param(pre_in_hdls(1), 'Position');
             frame_pos = [pre_in_pos(1)-240, pre_in_pos(2)-15, pre_in_pos(1)-160, pre_in_pos(2)+15];
             set_param([subsystem_path '/canframe'], 'Position', frame_pos)
-            % sel_pos = [pre_in_pos(1)-70, pre_in_pos(2)-15, pre_in_pos(1)-65, pre_in_pos(2)+15];
-            % set_param([subsystem_path '/Bus Selector'], 'Position', sel_pos)
             %% 配置 canrx preprocess/postprocess subsystem 连线
             for i_sig = 1:length(obj.can_info.Row)
                 sig_name = obj.can_info.Input{i_sig};
@@ -149,9 +146,12 @@ classdef autoMBDCanRx < autoMBD
             end
             %% 配置 canrx postprocess subsystem 端口
             obj.add_subsystem_port(sig_postprocess_sub_path);
+            %% 配置 rx normal subsystem 缩放大小
+            set_param(subsystem_path, 'ZoomFactor', '100')
         end
 
         function system_hdl = add_sig_prepocess_subsystem(obj, subsystem_path)
+            %% 获取句柄
             system_hdl = get_param(subsystem_path, 'Handle');
             %% 循环添加 Extract Block 解析逻辑
             for i_sig = 1:length(obj.can_info.Row)
@@ -195,12 +195,12 @@ classdef autoMBDCanRx < autoMBD
                 sig_info = obj.can_info(i_sig,:);
                 sig_name = sig_info.Row{1};
                 sig_sub_path = [subsystem_path '/' sig_name '_subsystem'];
-                sig_subsystem_pos = [obj.sig_sub_base_pos(1), obj.sig_sub_base_pos(2) + i_sig * obj.sig_sub_interval, obj.sig_sub_base_pos(3), obj.sig_sub_base_pos(4) + i_sig * obj.sig_sub_interval];
+                sig_sub_pos = [obj.sig_sub_base_pos(1), obj.sig_sub_base_pos(2) + i_sig * obj.sig_sub_interval, obj.sig_sub_base_pos(3), obj.sig_sub_base_pos(4) + i_sig * obj.sig_sub_interval];
                 % 添加 sig subsystem
                 obj.add_sig_subsystem(sig_sub_path, sig_info);
-                set_param(sig_sub_path, 'Position', sig_subsystem_pos);
+                set_param(sig_sub_path, 'Position', sig_sub_pos);
                 % 配置 sig subsystem 端口
-                obj.add_subsystem_port(sig_sub_path)
+                obj.add_subsystem_port(sig_sub_path);
             end
             %% 配置 cantx postprocess subsystem 缩放大小
             set_param(subsystem_path, 'ZoomFactor', '100')
@@ -209,19 +209,19 @@ classdef autoMBDCanRx < autoMBD
 
         function system_hdl = add_sig_subsystem(obj, subsystem_path, sig_info)
             %% 通过表格判读添加 sig subsystem 类型
-            gmlan_name = sig_info.Row{1};
-            sig_name = sig_info.Input{1};
-            gmlan_invalid_name = ['can_gmlan_rx_invalid_' sig_name];
+            sig_name = sig_info.Row{1};
+            frame_name = sig_info.Input{1};
+            sig_invalid_name = ['can_gmlan_rx_invalid_' frame_name];
             inv_name = convertStringsToChars(sig_info.('Invalid Status'));
             system_hdl = add_block(obj.lib_error_sub, subsystem_path);
             %% 修改 can_rx 名
-            obj.modify_port_line_name('In', subsystem_path, 'can_rx', sig_name)   
+            obj.modify_port_line_name('In', subsystem_path, 'can_rx', frame_name)   
             %% 修改 can gmlan rx 名
-            obj.modify_port_line_name('Out', subsystem_path, 'can_gmlan_rx_xxxx', gmlan_name)
+            obj.modify_port_line_name('Out', subsystem_path, 'can_gmlan_rx_xxxx', sig_name)
             %% 修改 inv xxxx 名
             obj.modify_port_line_name('In', subsystem_path, 'inv_xxxx', inv_name)
             %% 修改 can gmlan rx invalid xxxx 名
-            obj.modify_port_line_name('Out', subsystem_path, 'can_gmlan_rx_invalid_xxxx', gmlan_invalid_name)
+            obj.modify_port_line_name('Out', subsystem_path, 'can_gmlan_rx_invalid_xxxx', sig_invalid_name)
             %% 修改 K_CAN_GMLAN_RX_DEFAULT_xxxx 名 
             set_param([subsystem_path '/K_CAN_GMLAN_RX_DEFAULT_xxxx'], 'Name', sig_info.('Error Indicator Value'), 'Value', sig_info.('Error Indicator Value'));
             %% 配置上下限
@@ -245,23 +245,23 @@ classdef autoMBDCanRx < autoMBD
             obj.modify_model_config(model_name, 'SLDD_CFG')
             %% 绑定信号
             sldd_path = [save_path '\' model_name '.sldd'];
-            rx_sldd_obj = Simulink.data.dictionary.open(sldd_path);
-            rx_design_data = getSection(rx_sldd_obj,'Design Data');
+            sldd_obj = Simulink.data.dictionary.open(sldd_path);
+            design_data = getSection(sldd_obj,'Design Data');
             %% 添加Cali
-            obj.add_parameter_to_sldd(obj.can_info, rx_design_data, "ExportedGlobal");
+            obj.add_parameter_to_sldd(obj.can_info, design_data, "ExportedGlobal");
             %% 绑定Can Frame信号
-            rx_sig_prepocess_subsystem_name = [model_name '/' model_name '_main/' model_name '_preprocess'];
-            obj.add_outport_canframe_resolve_on_line(rx_sig_prepocess_subsystem_name, obj.can_info, rx_design_data, "Model default")
-            rx_sig_main_subsystem_name = [model_name '/' model_name '_main'];
-            obj.add_inport_dd_resolve_on_line(rx_sig_main_subsystem_name, rx_design_data, 'ImportedExtern');
-            obj.add_outport_dd_resolve_on_line(rx_sig_main_subsystem_name, rx_design_data, 'ExportedGlobal');
+            sig_prepocess_subsystem_name = [model_name '/' model_name '_main/' model_name '_preprocess'];
+            obj.add_outport_canframe_resolve_on_line(sig_prepocess_subsystem_name, obj.can_info, design_data, "Model default")
+            sig_main_subsystem_name = [model_name '/' model_name '_main'];
+            obj.add_inport_dd_resolve_on_line(sig_main_subsystem_name, design_data, 'ImportedExtern');
+            obj.add_outport_dd_resolve_on_line(sig_main_subsystem_name, design_data, 'ExportedGlobal');
             %% 修改初始值
             init_subsystem_path = [model_name '/' model_name '_init'];
             obj.modify_init_value(init_subsystem_path);
             %% 保存并关闭模型
             save_system(model_name);
-            rx_sldd_obj.saveChanges()
-            rx_sldd_obj.close()
+            sldd_obj.saveChanges()
+            sldd_obj.close()
             close_system(model_name);
             %% 关闭并清除所有
             obj.clear_all();
