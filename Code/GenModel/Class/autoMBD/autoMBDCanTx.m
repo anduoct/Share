@@ -328,6 +328,15 @@ classdef autoMBDCanTx < autoMBD
             obj.add_outport_canframe_resolve_on_line(sig_prepocess_subsystem_name, obj.can_info, design_data, "Model default")
             sig_main_subsystem_name = [model_name '/' model_name '_main'];
             obj.add_inport_dd_resolve_on_line(sig_main_subsystem_name, design_data, 'ImportedExtern');
+            can_frame_name = [model_name '_canframe'];
+            can_frame = Simulink.Signal;
+            can_frame.CoderInfo.StorageClass = 'ExportedGlobal';
+            can_frame.DataType = 'Bus: canframe';
+            addEntry(design_data, can_frame_name, can_frame)
+            can_frame_path =  [model_name '/' model_name '_main/' can_frame_name];
+            line_hdl = get_param(can_frame_path, 'LineHandles').Inport(1);
+            set_param(line_hdl, 'Name', can_frame_name);
+            set(line_hdl, 'MustResolveToSignalObject', 1);
             %% 保存并关闭模型
             save_system(model_name);
             sldd_obj.saveChanges()
