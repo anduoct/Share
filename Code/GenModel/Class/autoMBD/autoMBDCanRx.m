@@ -172,7 +172,7 @@ classdef autoMBDCanRx < autoMBD
                 outport_pos =  [out_pos(1)+170, out_pos(2)-7, out_pos(1)+200, out_pos(2)+7];
                 add_block('simulink/Sinks/Out1', [subsystem_path '/' sig_name], 'Name', sig_name, 'Position', outport_pos)
                 % 添加连线
-                add_line(subsystem_path, 'canframe_merge/1', [ext_name '/1'], 'autorouting','on'); 
+                add_line(subsystem_path, 'canframe_split/1', [ext_name '/1'], 'autorouting','on'); 
                 add_line(subsystem_path, [ext_name '/1'], [conversion_name '/1'], 'autorouting','on'); 
                 add_line(subsystem_path, [conversion_name '/1'], [sig_name '/1'], 'autorouting','on');
             end
