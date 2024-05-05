@@ -231,7 +231,7 @@ classdef autoMBDCanTx < autoMBD
             or_blk_hdl = add_block('simulink/Logic and Bit Operations/Bitwise Operator', [subsystem_path '/Bitwise Operator'], 'Position', or_blk_pos, 'UseBitMask', 'off', 'logicop', 'OR', 'NumInputPorts', num2str(sig_num));
             for i_sig = 1:sig_num
                 frame_name = obj.can_info.Input{i_sig};
-                frame_start = num2str(63 - str2double(obj.can_info.('Start Bit'){i_sig}));
+                frame_start = num2str(64 - str2double(obj.can_info.('Start Bit'){i_sig}) - str2double(obj.can_info.('Length'){i_sig}));
                 inport_path = [subsystem_path '/' frame_name];
                 inport_pos = obj.post_sub_inport_base_pos + [0 obj.post_sub_interval*i_sig 0 obj.post_sub_interval*i_sig];
                 convert_pos = obj.post_sub_convert_base_pos + [0 obj.post_sub_interval*i_sig 0 obj.post_sub_interval*i_sig];
