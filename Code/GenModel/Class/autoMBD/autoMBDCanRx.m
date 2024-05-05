@@ -159,7 +159,7 @@ classdef autoMBDCanRx < autoMBD
                 % 添加 Extract Block 并配置其属性
                 sig_start_bit = str2double(obj.can_info.("Start Bit"){i_sig});
                 sig_len = str2double(obj.can_info.Length{i_sig});
-                sig_extract_str = ['[' num2str(sig_start_bit) ' ' num2str(sig_start_bit+sig_len-1) ']'];
+                sig_extract_str = ['[' num2str(64-sig_start_bit-sig_len) ' ' num2str(63 - sig_start_bit) ']'];
                 ext_pos = obj.ext_blk_base_pos + [0 obj.ext_blk_interval*i_sig 0 obj.ext_blk_interval*i_sig];
                 ext_hdl = add_block('simulink/Logic and Bit Operations/Extract Bits', [subsystem_path '/Extract Bits'], 'MakeNameUnique', 'on', 'Position', ext_pos);
                 ext_name = get_param(ext_hdl, 'Name');
