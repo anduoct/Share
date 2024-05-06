@@ -165,7 +165,7 @@ classdef autoMBDCanRx < autoMBD
                 ext_name = get_param(ext_hdl, 'Name');
                 % 添加 Conversion Block 并配置其属性
                 conversion_pos = ext_pos + [150 0 150 0];
-                conversion_hdl = add_block('simulink/Signal Attributes/Data Type Conversion', [subsystem_path '/Data Type Conversion'], 'MakeNameUnique', 'on', 'Position', conversion_pos);
+                conversion_hdl = add_block('simulink/Signal Attributes/Data Type Conversion', [subsystem_path '/Data Type Conversion'], 'ConvertRealWorld', 'Stored Integer (SI)', 'MakeNameUnique', 'on', 'Position', conversion_pos);
                 conversion_name = get_param(conversion_hdl, 'Name');
                 set_param(ext_hdl, 'bitsToExtract', 'Range of bits', 'bitIdxRange', sig_extract_str, 'outScalingMode', 'Treat bit field as an integer');
                 out_pos = get_param(get_param(conversion_hdl, 'PortHandles').Outport(1), 'Position'); 

@@ -237,7 +237,7 @@ classdef autoMBDCanTx < autoMBD
                 convert_pos = obj.post_sub_convert_base_pos + [0 obj.post_sub_interval*i_sig 0 obj.post_sub_interval*i_sig];
                 shift_pos = obj.post_sub_shift_base_pos + [0 obj.post_sub_interval*i_sig 0 obj.post_sub_interval*i_sig];
                 inport_hdl = add_block('simulink/Sources/In1', inport_path, 'Position', inport_pos);
-                convert_hdl = add_block('simulink/Signal Attributes/Data Type Conversion', [subsystem_path '/Data Type Conversion'], 'Position', convert_pos, 'MakeNameUnique', 'on', 'OutDataTypeStr', 'uint64');
+                convert_hdl = add_block('simulink/Signal Attributes/Data Type Conversion', [subsystem_path '/Data Type Conversion'], 'ConvertRealWorld', 'Stored Integer (SI)', 'Position', convert_pos, 'MakeNameUnique', 'on', 'OutDataTypeStr', 'uint64');
                 shift_hdl = add_block('simulink/Logic and Bit Operations/Shift Arithmetic', [subsystem_path '/Shift Arithmetic'], 'Position', shift_pos, 'MakeNameUnique', 'on', 'BitShiftDirection', 'Left', 'BitShiftNumber', frame_start);
                 inport_name = get_param(inport_hdl, 'Name');
                 convert_name = get_param(convert_hdl, 'Name');
