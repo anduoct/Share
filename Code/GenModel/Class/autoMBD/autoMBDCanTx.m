@@ -228,16 +228,16 @@ classdef autoMBDCanTx < autoMBD
             mid_point = (mid_pos(2)+mid_pos(4))/2;
             mid_len = ((sig_num - 1) * obj.post_sub_interval)/2;
             or_blk_pos = obj.post_sub_or_base_pos + [0 mid_point-mid_len 0 mid_point+mid_len];
-            or_blk_hdl = add_block('simulink/Logic and Bit Operations/Bitwise Operator', [subsystem_path '/Bitwise Operator'], 'Position', or_blk_pos, 'UseBitMask', 'off', 'NumInputPorts', num2str(sig_num));
+            or_blk_hdl = add_block('simulink/Logic and Bit Operations/Bitwise Operator', [subsystem_path '/Bitwise Operator'], 'Position', or_blk_pos, 'UseBitMask', 'off', 'logicop', 'OR', 'NumInputPorts', num2str(sig_num));
             for i_sig = 1:sig_num
                 frame_name = obj.can_info.Input{i_sig};
-                frame_start = obj.can_info.('Start Bit'){i_sig};
+                frame_start = num2str(64 - str2double(obj.can_info.('Start Bit'){i_sig}) - str2double(obj.can_info.('Length'){i_sig}));
                 inport_path = [subsystem_path '/' frame_name];
                 inport_pos = obj.post_sub_inport_base_pos + [0 obj.post_sub_interval*i_sig 0 obj.post_sub_interval*i_sig];
                 convert_pos = obj.post_sub_convert_base_pos + [0 obj.post_sub_interval*i_sig 0 obj.post_sub_interval*i_sig];
                 shift_pos = obj.post_sub_shift_base_pos + [0 obj.post_sub_interval*i_sig 0 obj.post_sub_interval*i_sig];
                 inport_hdl = add_block('simulink/Sources/In1', inport_path, 'Position', inport_pos);
-                convert_hdl = add_block('simulink/Signal Attributes/Data Type Conversion', [subsystem_path '/Data Type Conversion'], 'Position', convert_pos, 'MakeNameUnique', 'on', 'OutDataTypeStr', 'uint64');
+                convert_hdl = add_block('simulink/Signal Attributes/Data Type Conversion', [subsystem_path '/Data Type Conversion'], 'ConvertRealWorld', 'Stored Integer (SI)', 'Position', convert_pos, 'MakeNameUnique', 'on', 'OutDataTypeStr', 'uint64');
                 shift_hdl = add_block('simulink/Logic and Bit Operations/Shift Arithmetic', [subsystem_path '/Shift Arithmetic'], 'Position', shift_pos, 'MakeNameUnique', 'on', 'BitShiftDirection', 'Left', 'BitShiftNumber', frame_start);
                 inport_name = get_param(inport_hdl, 'Name');
                 convert_name = get_param(convert_hdl, 'Name');
@@ -328,6 +328,15 @@ classdef autoMBDCanTx < autoMBD
             obj.add_outport_canframe_resolve_on_line(sig_prepocess_subsystem_name, obj.can_info, design_data, "Model default")
             sig_main_subsystem_name = [model_name '/' model_name '_main'];
             obj.add_inport_dd_resolve_on_line(sig_main_subsystem_name, design_data, 'ImportedExtern');
+            can_frame_name = [model_name '_canframe'];
+            can_frame = Simulink.Signal;
+            can_frame.CoderInfo.StorageClass = 'ExportedGlobal';
+            can_frame.DataType = 'Bus: canframe';
+            addEntry(design_data, can_frame_name, can_frame)
+            can_frame_path =  [model_name '/' model_name '_main/' can_frame_name];
+            line_hdl = get_param(can_frame_path, 'LineHandles').Inport(1);
+            set_param(line_hdl, 'Name', can_frame_name);
+            set(line_hdl, 'MustResolveToSignalObject', 1);
             %% 保存并关闭模型
             save_system(model_name);
             sldd_obj.saveChanges()

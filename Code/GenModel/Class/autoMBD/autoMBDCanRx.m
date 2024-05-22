@@ -159,20 +159,20 @@ classdef autoMBDCanRx < autoMBD
                 % 添加 Extract Block 并配置其属性
                 sig_start_bit = str2double(obj.can_info.("Start Bit"){i_sig});
                 sig_len = str2double(obj.can_info.Length{i_sig});
-                sig_extract_str = ['[' num2str(sig_start_bit) ' ' num2str(sig_start_bit+sig_len-1) ']'];
+                sig_extract_str = ['[' num2str(64-sig_start_bit-sig_len) ' ' num2str(63 - sig_start_bit) ']'];
                 ext_pos = obj.ext_blk_base_pos + [0 obj.ext_blk_interval*i_sig 0 obj.ext_blk_interval*i_sig];
                 ext_hdl = add_block('simulink/Logic and Bit Operations/Extract Bits', [subsystem_path '/Extract Bits'], 'MakeNameUnique', 'on', 'Position', ext_pos);
                 ext_name = get_param(ext_hdl, 'Name');
                 % 添加 Conversion Block 并配置其属性
                 conversion_pos = ext_pos + [150 0 150 0];
-                conversion_hdl = add_block('simulink/Signal Attributes/Data Type Conversion', [subsystem_path '/Data Type Conversion'], 'MakeNameUnique', 'on', 'Position', conversion_pos);
+                conversion_hdl = add_block('simulink/Signal Attributes/Data Type Conversion', [subsystem_path '/Data Type Conversion'], 'ConvertRealWorld', 'Stored Integer (SI)', 'MakeNameUnique', 'on', 'Position', conversion_pos);
                 conversion_name = get_param(conversion_hdl, 'Name');
                 set_param(ext_hdl, 'bitsToExtract', 'Range of bits', 'bitIdxRange', sig_extract_str, 'outScalingMode', 'Treat bit field as an integer');
                 out_pos = get_param(get_param(conversion_hdl, 'PortHandles').Outport(1), 'Position'); 
                 outport_pos =  [out_pos(1)+170, out_pos(2)-7, out_pos(1)+200, out_pos(2)+7];
                 add_block('simulink/Sinks/Out1', [subsystem_path '/' sig_name], 'Name', sig_name, 'Position', outport_pos)
                 % 添加连线
-                add_line(subsystem_path, 'canframe_merge/1', [ext_name '/1'], 'autorouting','on'); 
+                add_line(subsystem_path, 'canframe_split/1', [ext_name '/1'], 'autorouting','on'); 
                 add_line(subsystem_path, [ext_name '/1'], [conversion_name '/1'], 'autorouting','on'); 
                 add_line(subsystem_path, [conversion_name '/1'], [sig_name '/1'], 'autorouting','on');
             end
