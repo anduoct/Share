@@ -1,0 +1,113 @@
+%% file : IndFunc.tlc
+%% 
+%% Description:
+%%   Simulink Coder TLC Code Generation file for rtwdemo_sfun_work
+%% 
+%% Simulink version      : 10.6 (R2022b) 13-May-2022
+%% TLC file generated on : 27-Jul-2023 11:53:55
+
+/%
+     %%%-MATLAB_Construction_Commands_Start
+     def = legacy_code('initialize');
+     def.SFunctionName = 'rtwdemo_sfun_work';
+     def.InitializeConditionsFcnSpec = 'void memory_bus_init(COUNTERBUS work1[1], int32 p1, int32 p2)';
+     def.OutputFcnSpec = 'void memory_bus_step(COUNTERBUS u1[1], COUNTERBUS work1[1], COUNTERBUS y1[1])';
+     def.HeaderFiles = {'memory_bus.h'};
+     def.SourceFiles = {'memory_bus.c'};
+     def.IncPaths = {'rtwdemo_lct_src'};
+     def.SrcPaths = {'rtwdemo_lct_src'};
+     legacy_code('sfcn_tlc_generate', def);
+     %%%-MATLAB_Construction_Commands_End
+%/
+
+%implements TimeoutFunc "C"
+
+%% Function: FcnGenerateUniqueFileName ====================================
+%% %function FcnGenerateUniqueFileName (filename, type) void
+%%     %assign isReserved = TLC_FALSE
+%%     %foreach idxFile = CompiledModel.DataObjectUsage.NumFiles[0]
+%%         %assign thisFile = CompiledModel.DataObjectUsage.File[idxFile]
+%%         %if (thisFile.Name==filename) && (thisFile.Type==type)
+%%             %assign isReserved = TLC_TRUE
+%%             %break
+%%         %endif
+%%     %endforeach
+%%     %if (isReserved==TLC_TRUE)
+%%         %assign filename = FcnGenerateUniqueFileName(filename + "_", type)
+%%     %endif
+%%     %return filename
+%% %endfunction
+
+%% Function: BlockTypeSetup ===============================================
+%function BlockTypeSetup (block, system) void
+
+%endfunction
+
+%% Function: BlockInstanceSetup ===========================================
+%function BlockInstanceSetup (block, system) void
+%%     %if IsModelReferenceSimTarget() || CodeFormat=="S-Function" || ::isRAccel
+%%     %else
+%%         %<LibBlockSetIsExpressionCompliant(block)>
+%%     %endif
+%endfunction
+
+%% Function: Start ========================================================
+%function Start (block, system) Output
+
+%endfunction
+
+%% Function: InitializeConditions =========================================
+%function InitializeConditions (block, system) Output
+
+%endfunction
+
+%% Function: Outputs ======================================================
+%function Outputs (block, system) Output
+    %assign t_siggroupIndex = SFcnParamSettings.r_siggroupIndex
+    %assign t_canid = SFcnParamSettings.r_canid
+    %assign t_signalTable = SFcnParamSettings.r_signalTable
+
+    %assign signalRaw = FEVAL("regexp", t_signalTable, ",", "split")
+
+    %if ISEQUAL(SIZE(signalRaw, 1) % 3, 0)
+
+        %assign signalNum = SIZE(signalRaw, 1) / 3
+
+        UW wkuw_signal_name = 0xFFFFU;
+
+        %foreach idx = signalNum
+            %%         %createrecord signalRecord {Type ""; Name""; Index""}
+            %assign signalType = signalRaw[idx]
+            %assign signalName = signalRaw[idx + signalNum]
+            %<signalType> %<signalName> = 0U;
+        %endforeach
+
+        /* Signal Group Receive Flag*/
+        IFLayer_rx_timeout_%<t_canid> = 1U;
+        IFLayer_rx_cmplt_%<t_canid> = 0U;
+
+
+        /* Signal Group */
+        Com_ReceiveSignalGroup( %<t_siggroupIndex> );
+
+        %foreach idx = signalNum
+            %assign signalName = signalRaw[idx + signalNum]
+            %assign signalIndex = signalRaw[idx + signalNum * 2]
+            /* Signal%<idx+1> %<signalName> */
+            wkuw_signal_name = stsycanc_com2apl_receive_signal_mapping_tbl[%<signalIndex>].Signal_Name;
+            Com_ReceiveSignal( wkuw_signal_name, &%<signalName> );
+            data_set( IFLayer_%<signalName>, %<signalName> );
+        %endforeach
+    %else
+        %assign errTxt = "Signal infomation is missing."
+        %<LibBlockReportError([], errTxt)>
+    %endif
+
+%endfunction
+
+%% Function: Terminate ====================================================
+%function Terminate (block, system) Output
+
+%endfunction
+
+%% [EOF]
