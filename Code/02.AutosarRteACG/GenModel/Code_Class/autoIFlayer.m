@@ -48,9 +48,9 @@ classdef autoIFlayer < handle
 
         function tx_normal_sht_tbl = load_tx_normal(obj, sht_name)
             disp(sht_name)
-            var_nums = 9;
-            var_names = {'Interface', 'IFlayer Name', 'Signal', 'Invalid Status', 'Factor', 'Offset', 'Min', 'Max', 'SignalId'};
-            var_types = {'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'};
+            var_nums = 10;
+            var_names = {'Interface', 'IFlayer Name', 'Signal', 'Data Type', 'Invalid Status', 'Factor', 'Offset', 'Min', 'Max', 'SignalId'};
+            var_types = {'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'};
             var_namerules = 'preserve';
             var_range = 'A2';
             row_names_range = 'A2';
