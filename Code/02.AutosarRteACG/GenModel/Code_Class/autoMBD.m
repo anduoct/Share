@@ -98,6 +98,21 @@ classdef autoMBD < handle
             end
         end
 
+        function add_line_between_subsystem(~, subsystem1_path, subsystem2_path)
+            parent_path = get_param(subsystem1_path, 'Parent');
+            subsystem1_name = get_param(subsystem1_path, 'Name');
+            subsystem2_name = get_param(subsystem2_path, 'Name');
+            outport_names = get_param(find_system(subsystem1_path, 'SearchDepth', 1, 'BlockType', 'Outport'), 'Name');
+            inport_names = get_param(find_system(subsystem2_path, 'SearchDepth', 1, 'BlockType', 'Inport'), 'Name');
+            intersect_names = intersect(outport_names, inport_names);
+            for i_inter = 1:length(intersect_names)
+                out_num = get_param([subsystem1_path '/' intersect_names{i_inter}], 'Port');
+                in_num  = get_param([subsystem2_path '/' intersect_names{i_inter}], 'Port');
+                add_line(parent_path, [subsystem1_name '/' out_num], [subsystem2_name '/' in_num], 'autorouting','on');
+            end
+
+        end
+
         function modify_model_config(~, model_name, sldd_name)
             sldd_cfg = Simulink.ConfigSetRef;
             set_param(sldd_cfg, 'Name', sldd_name, 'SourceName', sldd_name)

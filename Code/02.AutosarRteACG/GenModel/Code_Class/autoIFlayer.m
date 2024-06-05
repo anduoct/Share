@@ -43,72 +43,108 @@ classdef autoIFlayer < handle
             rom_sht_tbl = readtable(dd_xls_path, rom_xls_opt);
 
             obj.mbd_cantx = autoMBDTx(ram_sht_tbl, rom_sht_tbl);
-%             obj.mbd_canrx = autoMBDCanRx(ram_sht_tbl, rom_sht_tbl);
+            obj.mbd_canrx = autoMBDRx(ram_sht_tbl, rom_sht_tbl);
         end
 
-        function tx_normal_sht_tbl = load_tx_normal(obj, sht_name)
-            disp(sht_name)
+        function tbl = load_tx_normal_sum(obj, sht_name)
+            var_nums = 2;
+            var_names = {'No.', 'E.Level'};
+            var_types = {'string', 'string'};
+            var_namerules = 'preserve';
+            var_range = 'A2';
+            row_names_range = 'A2';
+            xls_opt = spreadsheetImportOptions("NumVariables", var_nums, "VariableNames", var_names, "VariableTypes", var_types, "VariableNamingRule", var_namerules, "DataRange", var_range, "RowNamesRange", row_names_range);
+            xls_opt.Sheet = sht_name;
+            tbl = readtable(obj.in_xls_path, xls_opt);
+        end
+
+        function tbl = load_tx_normal(obj, sht_name)
             var_nums = 10;
             var_names = {'Interface', 'IFlayer Name', 'Signal', 'Data Type', 'Invalid Status', 'Factor', 'Offset', 'Min', 'Max', 'SignalId'};
             var_types = {'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'};
             var_namerules = 'preserve';
             var_range = 'A2';
             row_names_range = 'A2';
-            tx_normal_xls_opt = spreadsheetImportOptions("NumVariables", var_nums, "VariableNames", var_names, "VariableTypes", var_types, "VariableNamingRule", var_namerules, "DataRange", var_range, "RowNamesRange", row_names_range);
-            tx_normal_xls_opt.Sheet = sht_name;
-            tx_normal_sht_tbl = readtable(obj.in_xls_path, tx_normal_xls_opt);
+            xls_opt = spreadsheetImportOptions("NumVariables", var_nums, "VariableNames", var_names, "VariableTypes", var_types, "VariableNamingRule", var_namerules, "DataRange", var_range, "RowNamesRange", row_names_range);
+            xls_opt.Sheet = sht_name;
+            tbl = readtable(obj.in_xls_path, xls_opt);
+        end
+
+        function tbl = load_rx_normal_timeout_sum(obj, sht_name)
+            var_nums = 9;
+            var_names = {'No.', 'FrameID', 'J1939/ISO', 'Timeout flag', 'SIGNALGROUP NAME', 'IFLayer_rx_cmplt_xxx', 'IFLayer_rx_timeout_xxx', 'can_gmlan_cmplt_xxx', 'can_gmlan_rx_timeout_xxx'};
+            var_types = {'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'};
+            var_namerules = 'preserve';
+            var_range = 'A2';
+            row_names_range = 'A2';
+            xls_opt = spreadsheetImportOptions("NumVariables", var_nums, "VariableNames", var_names, "VariableTypes", var_types, "VariableNamingRule", var_namerules, "DataRange", var_range, "RowNamesRange", row_names_range);
+            xls_opt.Sheet = sht_name;
+            tbl = readtable(obj.in_xls_path, xls_opt);
+        end
+
+        function tbl = load_rx_normal_timeout(obj, sht_name)
+            var_nums = 23;
+            var_names = {'Signal Index', 'IFLayer_Signal', 'Data Type', 'Factor', 'Offset', 'Min', 'Max', 'Invalid Status', 'Error Indicator Value', 'Receive Parameter Invalid Status', 'Receive Parameter', '2-5-4 Requeset Paramter Select Flag', 'K_CAN_RX_SEL_XXX',  'Receive Parameter Invalid Status 2', 'Receive Parameter 2', 'RxSel Parameter Invalid Status', 'RxSel Parameter', '3-1-1 Requeset Paramter Select Flag', 'K_CAN_RQST_SEL_XXX', 'K_RQST_DRCT_XXX', 'can_rqst_xxx', 'can_invalid_can_rqst_xxx', 'interface'};
+            var_types = {'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'};
+            var_namerules = 'preserve';
+            var_range = 'A2';
+            row_names_range = 'A2';
+            xls_opt = spreadsheetImportOptions("NumVariables", var_nums, "VariableNames", var_names, "VariableTypes", var_types, "VariableNamingRule", var_namerules, "DataRange", var_range, "RowNamesRange", row_names_range);
+            xls_opt.Sheet = sht_name;
+            tbl = readtable(obj.in_xls_path, xls_opt);
         end
 
         function load(obj, in_xls_path)
             obj.in_xls_path = in_xls_path;
-            msg_class = ["TxNormal"; "RxNormal"];
-            in_sht_names = sheetnames(in_xls_path);
-            for i_name = 1: length(in_sht_names)
-                if ismember(in_sht_names(i_name), msg_class)
-                    id_flag = in_sht_names(i_name);
-                    continue
-                end
-
-                if strcmp(id_flag, "TxNormal")
-                    obj.tx_normal_dict(in_sht_names(i_name)) = obj.load_tx_normal(in_sht_names(i_name));
-                elseif strcmp(id_flag, "RxNormal")
-                    % TBD
-                end
+            %% TX Normal
+            tx_normal_sum_tbl = obj.load_tx_normal_sum('TxNormal');
+            for i_row = 1:length(tx_normal_sum_tbl.Row)
+                sht_name = tx_normal_sum_tbl.("E.Level")(i_row);
+                sht_info.detail = obj.load_tx_normal(sht_name);
+                obj.tx_normal_dict(sht_name) = sht_info;
+            end
+            %% RX Normal & RX TIMEOUT
+            rx_normal_sum_tbl = obj.load_rx_normal_timeout_sum('RxNormal&RxTimeout');
+            for i_row = 1:length(rx_normal_sum_tbl.Row)
+                sht_name = rx_normal_sum_tbl.("FrameID")(i_row);
+                sht_info.summary = rx_normal_sum_tbl(i_row,:);
+                sht_info.detail = obj.load_rx_normal_timeout(sht_name);
+                obj.rx_normal_dict(sht_name) = sht_info;
             end
         end
 
 
 
         function gen_model(obj)
-            for i_key = keys(obj.tx_normal_dict)
-                model_path = obj.output_model_path;
-                model_name = ['cantx_' i_key{1}];
-                model_info = obj.tx_normal_dict(i_key{1});
-                per_save_path = [model_path '\' model_name];
-                obj.mbd_cantx.gen_normal_model(per_save_path, model_name, model_info)
-            end
-%             for i_key = keys(obj.rx_normal_dict)
+%             for i_key = keys(obj.tx_normal_dict)
 %                 model_path = obj.output_model_path;
-%                 model_name = ['canrx_0x' i_key{1}];
-%                 model_info = obj.rx_normal_dict(i_key{1});
+%                 model_name = ['cantx_' i_key{1}];
+%                 model_info = obj.tx_normal_dict(i_key{1});
 %                 per_save_path = [model_path '\' model_name];
-%                 obj.mbd_canrx.gen_normal_model(per_save_path, model_name, model_info)
+%                 obj.mbd_cantx.gen_normal_model(per_save_path, model_name, model_info)
 %             end
+            for i_key = keys(obj.rx_normal_dict)
+                model_path = obj.output_model_path;
+                model_name = ['canrx_0x' i_key{1}];
+                model_info = obj.rx_normal_dict(i_key{1});
+                per_save_path = [model_path '\' model_name];
+                obj.mbd_canrx.gen_normal_model(per_save_path, model_name, model_info)
+            end
         end
 
         function gen_code(obj)
-            for i_key = keys(obj.tx_normal_dict)
-                model_path = obj.output_model_path;
-                model_name = ['cantx_' i_key{1}];
-                per_save_path = [model_path '\' model_name];
-                obj.mbd_cantx.gen_normal_code(per_save_path, model_name);
-            end
-%             for i_key = keys(obj.rx_normal_dict)
+%             for i_key = keys(obj.tx_normal_dict)
 %                 model_path = obj.output_model_path;
-%                 model_name = ['canrx_0x' i_key{1}];
+%                 model_name = ['cantx_' i_key{1}];
 %                 per_save_path = [model_path '\' model_name];
-%                 obj.mbd_canrx.gen_normal_code(per_save_path, model_name);
+%                 obj.mbd_cantx.gen_normal_code(per_save_path, model_name);
 %             end
+            for i_key = keys(obj.rx_normal_dict)
+                model_path = obj.output_model_path;
+                model_name = ['canrx_0x' i_key{1}];
+                per_save_path = [model_path '\' model_name];
+                obj.mbd_canrx.gen_normal_code(per_save_path, model_name);
+            end
         end
 
     end

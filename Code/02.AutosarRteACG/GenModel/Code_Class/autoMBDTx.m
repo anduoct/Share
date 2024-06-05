@@ -1,6 +1,6 @@
 classdef autoMBDTx < autoMBD
     properties
-        can_info
+        model_info
         can_sldd
         getdata_tlc
         invalid_tlc
@@ -23,7 +23,7 @@ classdef autoMBDTx < autoMBD
             %% 关闭并清除所有
             obj.clear_all();
             %% 获取 cantx info
-            obj.can_info = model_info;
+            obj.model_info = model_info;
             %% 配置生成模型路径及拷贝 sldd
             if exist(save_path,'dir')
                 rmdir(save_path, 's')
@@ -41,8 +41,8 @@ classdef autoMBDTx < autoMBD
             %% 配置 tx normal model 代码导出方式 sldd 及 缩放率
             set_param(normal_mdl, 'Datadictionary',[model_name '.sldd'])
             %% 添加 tx normal subsystem
-            for i_sig = 1:length(obj.can_info.Row)
-                sig_info = obj.can_info(i_sig,:);
+            for i_sig = 1:length(obj.model_info.detail.Row)
+                sig_info = obj.model_info.detail(i_sig,:);
                 normal_sub_path = [model_name '/' char(sig_info.Interface)];
                 normal_sub_pos = obj.normal_sub_base_pos + [0 obj.normal_sub_interval*i_sig 0 obj.normal_sub_interval*i_sig];
                 obj.add_signal_subsystem(normal_sub_path, sig_info);
