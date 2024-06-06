@@ -173,6 +173,15 @@ classdef autoMBD < handle
             end
         end
 
+        function add_system_parameter(obj, subsystem_path, design_data, storage_class)
+            system_param_name_list = unique(get_param(find_system(subsystem_path,'regexp','on', 'BlockType', 'Constant', 'Name', '^K_' ), 'Name'));
+            sldd_param_name_list = {find(design_data,'-value','-class','Simulink.Parameter').Name}';
+            param_name_list = setdiff(system_param_name_list, intersect(system_param_name_list, sldd_param_name_list));
+            for i_name = 1:length(param_name_list)
+                obj.add_dd_parameter_to_sldd(param_name_list(param_name_list), design_data, storage_class)
+            end
+        end
+
         function add_dd_signal_to_sldd(obj, signal_name, design_data, storage_class)
             sig = Simulink.Signal;
             sig.CoderInfo.StorageClass = storage_class;
@@ -196,6 +205,26 @@ classdef autoMBD < handle
             addEntry(design_data, inter_name, sig)
         end
 
+        function add_dd_parameter_to_sldd(obj, param_name, design_data, storage_class)
+            param = Simulink.Parameter;
+            param.CoderInfo.StorageClass = storage_class;
+            param_info = obj.rom_sht_tbl(param_name,:);
+            if strcmp(param_info.Attribute, "UB")
+                param.DataType = strcat("fixdt(0, 8, ", param_info.numerator , "/" , param_info.denominator, ")");
+            elseif strcmp(param_info.Attribute, "UW")
+                param.DataType = strcat("fixdt(0, 16, ", param_info.numerator , "/" , param_info.denominator, ")");
+            elseif strcmp(param_info.Attribute, "UD")
+                param.DataType = strcat("fixdt(0, 32, ", param_info.numerator , "/" , param_info.denominator, ")");
+            elseif strcmp(param_info.Attribute, "SB")
+                param.DataType = strcat("fixdt(1, 8, ", param_info.numerator , "/" , param_info.denominator, ")");
+            elseif strcmp(param_info.Attribute, "SW")
+                param.DataType = strcat("fixdt(1, 16, ", param_info.numerator , "/" , param_info.denominator, ")");
+            elseif strcmp(param_info.Attribute, "SD")
+                param.DataType = strcat("fixdt(1, 32, ", param_info.numerator , "/" , param_info.denominator, ")");
+            end
+            param.Value = str2double(param_info.('Initial（Internal）'));
+            addEntry(design_data, param_name, param)
+        end
 
         function add_outport_canframe_resolve_on_line(obj, subsystem_path, caninfo, design_data, storage_class)
             outport_path_list = find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Outport');
@@ -232,28 +261,6 @@ classdef autoMBD < handle
         end
 
 
-        function add_parameter_to_sldd(obj, caninfo, design_data, storage_class)
-            for i_sig = 1:length(caninfo.Row)
-                param_name = caninfo.('Error Indicator Value'){i_sig};
-                param_info = obj.rom_sht_tbl(param_name,:);
-                param = Simulink.Parameter;
-                param.CoderInfo.StorageClass = storage_class;
-                if strcmp(param_info.Attribute, "UB")
-                    param.DataType = strcat("fixdt(0, 8, ", param_info.numerator , "/" , param_info.denominator, ")");
-                elseif strcmp(param_info.Attribute, "UW")
-                    param.DataType = strcat("fixdt(0, 16, ", param_info.numerator , "/" , param_info.denominator, ")");
-                elseif strcmp(param_info.Attribute, "UD")
-                    param.DataType = strcat("fixdt(0, 32, ", param_info.numerator , "/" , param_info.denominator, ")");
-                elseif strcmp(param_info.Attribute, "SB")
-                    param.DataType = strcat("fixdt(1, 8, ", param_info.numerator , "/" , param_info.denominator, ")");
-                elseif strcmp(param_info.Attribute, "SW")
-                    param.DataType = strcat("fixdt(1, 16, ", param_info.numerator , "/" , param_info.denominator, ")");
-                elseif strcmp(param_info.Attribute, "SD")
-                    param.DataType = strcat("fixdt(1, 32, ", param_info.numerator , "/" , param_info.denominator, ")");
-                end
-                param.Value = str2double(param_info.('Initial（Internal）'));
-                addEntry(design_data, param_name, param)
-            end
-        end
+
     end
 end

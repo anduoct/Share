@@ -1,21 +1,27 @@
-classdef autoMBDCanRx < autoMBD
+classdef autoMBDRx < autoMBD
     properties
-        can_info
+        model_info
         can_sldd
+        indfunc_call_base_pos
+        normal_main_base_pos
+        normal_main_interval
+        normal_sub_base_pos
     end
-
     methods
-        function obj = autoMBDCanRx(ram_sht_tbl, rom_sht_tbl)
+        function obj = autoMBDRx(ram_sht_tbl, rom_sht_tbl)
             obj = obj@autoMBD(ram_sht_tbl, rom_sht_tbl);
             obj.can_sldd = which('canrx.sldd');
-
+            obj.indfunc_call_base_pos = [240 0 650 70];
+            obj.normal_main_base_pos = [240 110 650 130];
+            obj.normal_main_interval = 40;
+            obj.normal_sub_base_pos = [70 1500 710 1570];
         end
 
-        function gen_normal_model(obj, save_path, model_name, model_info)            
+        function gen_normal_model(obj, save_path, model_name, model_info)
             %% 关闭并清除所有
             obj.clear_all();
-            %% 获取 canrx info
-            obj.can_info = model_info;
+            %% 获取 cantx info
+            obj.model_info = model_info;
             %% 配置生成模型路径及拷贝 sldd
             if exist(save_path,'dir')
                 rmdir(save_path, 's')
@@ -29,185 +35,154 @@ classdef autoMBDCanRx < autoMBD
             open_system(normal_mdl);
             %% 配置 rx normal model 代码导出方式 sldd 及 缩放率
             set_param(normal_mdl, 'Datadictionary',[model_name '.sldd'])
-            %% 添加 rx normal main
+            %% 添加 rx indfunc call
+            indfunc_call_path = [model_name '/' model_name '_indfunc_call'];
+            obj.add_indfunc_call_block(indfunc_call_path, model_info);
+            set_param(indfunc_call_path, 'Position', obj.indfunc_call_base_pos);
+            %% 添加 rx normal subsystem
             normal_main_path = [model_name '/' model_name '_main'];
-            obj.add_normal_subsystem(normal_main_path);
+            obj.add_normal_main_subsystem(normal_main_path, model_info);
             % 配置 rx normal main 位置
             port_num = length(get_param(normal_main_path, 'PortHandles').Outport);
-            normal_main_pos = obj.normal_sub_base_pos + [0 0 0 obj.normal_sub_port_interval*port_num];
+            normal_main_pos = obj.normal_main_base_pos + [0 0 0 obj.normal_main_interval*port_num];
             set_param(normal_main_path, 'Position', normal_main_pos);
             % 添加 tx normal model 输入
             obj.add_subsystem_port(normal_main_path);
-            %% 添加 rx normal init
-            normal_init_path = [model_name '/' model_name '_init'];
-            obj.add_normal_initial(normal_init_path, normal_main_path);
-            % 配置 rx normal init 位置
-            normal_init_pos = [normal_main_pos(1) normal_main_pos(2)-100 normal_main_pos(3) normal_main_pos(2)-60];
-            set_param(normal_init_path, 'Position', normal_init_pos);
             %% 配置 tx normal model 缩放大小
             set_param(normal_mdl, 'ZoomFactor', '100');
-            %% 保存并关闭 rx normal model
+            %% 保存并关闭 tx normal model
             save_system(normal_mdl, [save_path, '\' , model_name, '.slx']);
             close_system(normal_mdl);
             %% 关闭并清除所有
             obj.clear_all();
         end
 
-        function system_hdl = add_normal_initial(obj, init_subsystem_path, main_subsystem_path)
-            %% 添加 cantx_normal_init
-            system_hdl = add_block('simulink/User-Defined Functions/Initialize Function', init_subsystem_path);
-            %% 删除原有的 in out line
-            del_in_hdl = getSimulinkBlockHandle([init_subsystem_path '/Constant1']);
-            del_out_hdl = getSimulinkBlockHandle([init_subsystem_path '/State Writer']);
-            del_line_hdl = get_param(del_in_hdl, 'LineHandles');
-            delete_block([del_in_hdl, del_out_hdl]);
-            delete_line(del_line_hdl.Outport(1));
-            %% 添加 init
-            outport_names = get_param(find_system(main_subsystem_path, 'SearchDepth', 1, 'BlockType', 'Outport'), 'Name');
-            for i_name = 1:length(outport_names)
-                cosnt_blk_path = [init_subsystem_path '/' outport_names{i_name} '_value'];
-                cosnt_blk_pos = obj.const_blk_base_pos + [0 i_name*obj.init_sub_interval 0 i_name*obj.init_sub_interval];
-                state_blk_pos = obj.state_blk_base_pos + [0 i_name*obj.init_sub_interval 0 i_name*obj.init_sub_interval];
-                state_blk_path = [init_subsystem_path '/' outport_names{i_name} '_state'];
-                state_blk_value = [main_subsystem_path '/' outport_names{i_name}];
-                add_block('simulink/Sources/Constant', cosnt_blk_path, 'Position', cosnt_blk_pos, 'OutDataTypeStr', 'Inherit: Inherit via back propagation');
-                add_block('simulink/Signal Routing/State Writer', state_blk_path, 'Position', state_blk_pos, 'StateOwnerBlock', state_blk_value);
-                cosnt_blk_hdl = get_param(cosnt_blk_path, 'PortHandles').Outport;
-                state_blk_hdl = get_param(state_blk_path, 'PortHandles').Inport;
-                add_line(init_subsystem_path, cosnt_blk_hdl(1), state_blk_hdl(1), 'autorouting','on'); 
+        function blk_hdl = add_indfunc_call_block(~, block_path, model_info)
+            blk_hdl = add_block('user_lib/IndFunc_Call', block_path);
+            msg_summary = model_info.summary;
+            msg_detail = model_info.detail;
+            mask_value{1} = 'Test';
+            mask_value{2} = msg_summary.("FrameID");
+            table_str = '';
+            for i_sig = 1:length(msg_detail.Row)
+                signal_info = msg_detail(i_sig,:);
+                table_str =  [table_str ';''' char(signal_info.("Data Type")) ''',''' char(signal_info.IFLayer_Signal) ''',''' char(signal_info.("Signal Index")) ''''];
             end
+            mask_value{3} = ['{'  table_str(2:end) '}'];
+            if strcmp(msg_summary.("Timeout flag"), "1")
+                mask_value{4} = 'on';
+            else
+                mask_value{4} = 'off';
+            end
+            if strcmp(msg_summary.("J1939/ISO"), "J1939")
+                mask_value{5} = 'on';
+            else
+                mask_value{5} = 'off';
+            end
+            set_param(block_path, 'MaskValues', mask_value);
         end
 
-        function system_hdl = add_normal_subsystem(obj, subsystem_path)
-            %% 添加 cantx_normal 模板
-            system_hdl = add_block(obj.lib_normal_mdl, subsystem_path);
-            %% 获取 system name
-            sub_name = get_param(subsystem_path, 'Name');
-            %% 设置 Trigger Port 参数
-            trg_port_path = [subsystem_path '/canrx_normal'];
-            set_param(trg_port_path, 'FunctionName', sub_name, 'FunctionPrototype', [sub_name '(channel, canframe, time)']);
-            %% 添加 cantx preprocess
-            sig_prepocess_sub_ori_path = [subsystem_path '/canframe_preprocess'];
-            sig_prepocess_sub_name = [sub_name(1:end-5) '_preprocess'];
-            sig_prepocess_sub_dst_path = [subsystem_path '/' sig_prepocess_sub_name];
-            set_param(sig_prepocess_sub_ori_path, 'Name', sig_prepocess_sub_name)
-            obj.add_sig_prepocess_subsystem(sig_prepocess_sub_dst_path);
-            %% 添加 canrx postprocess
-            sig_postprocess_sub_name = [sub_name(1:end-5) '_postprocess'];
-            sig_postprocess_sub_path = [subsystem_path '/' sig_postprocess_sub_name];
-            obj.add_sig_postpocess_subsystem(sig_postprocess_sub_path);
-            %% 配置 canrx preprocess/postprocess subsystem 位置
-            pre_out_hdls = get_param(sig_prepocess_sub_dst_path, 'PortHandles').Outport;
-            post_in_hdls = get_param(sig_postprocess_sub_path, 'PortHandles').Inport;
-            inport_num = length(post_in_hdls);
-            sig_prepocess_sub_pos = obj.preprocess_sub_base_pos + [0 0 0 obj.preprocess_sub_port_interval*inport_num];
-            set_param(sig_prepocess_sub_dst_path, 'Position', sig_prepocess_sub_pos);
-            sig_postpocess_pos = sig_prepocess_sub_pos + [500 0 500 0];
-            set_param(sig_postprocess_sub_path, 'Position', sig_postpocess_pos);
-            %% 配置 canframe 及 Bus Selector 位置
-            pre_in_hdls = get_param(sig_prepocess_sub_dst_path, 'PortHandles').Inport;
-            pre_in_pos = get_param(pre_in_hdls(1), 'Position');
-            frame_pos = [pre_in_pos(1)-240, pre_in_pos(2)-15, pre_in_pos(1)-160, pre_in_pos(2)+15];
-            set_param([subsystem_path '/canframe'], 'Position', frame_pos)
-            %% 配置 canrx preprocess/postprocess subsystem 连线
-            for i_sig = 1:length(obj.can_info.Row)
-                sig_name = obj.can_info.Input{i_sig};
-                pre_sig_path = [sig_prepocess_sub_dst_path '/' sig_name];
-                post_sig_path = [sig_postprocess_sub_path '/' sig_name];
-                pre_sig_num = str2double(get_param(pre_sig_path, 'Port'));
-                post_sig_num = str2double(get_param(post_sig_path, 'Port'));
-                add_line(subsystem_path, pre_out_hdls(pre_sig_num), post_in_hdls(post_sig_num), 'autorouting','on'); 
-            end
-            %% 配置 canrx postprocess subsystem 端口
-            obj.add_subsystem_port(sig_postprocess_sub_path);
-            %% 配置 rx normal subsystem 缩放大小
-            set_param(subsystem_path, 'ZoomFactor', '100')
-        end
-
-        function system_hdl = add_sig_prepocess_subsystem(obj, subsystem_path)
-            %% 获取句柄
-            system_hdl = get_param(subsystem_path, 'Handle');
-            %% 循环添加 Extract Block 解析逻辑
-            for i_sig = 1:length(obj.can_info.Row)
-                sig_name = obj.can_info.Input{i_sig};
-                % 添加 Extract Block 并配置其属性
-                sig_start_bit = str2double(obj.can_info.("Start Bit"){i_sig});
-                sig_len = str2double(obj.can_info.Length{i_sig});
-                sig_extract_str = ['[' num2str(64-sig_start_bit-sig_len) ' ' num2str(63 - sig_start_bit) ']'];
-                ext_pos = obj.ext_blk_base_pos + [0 obj.ext_blk_interval*i_sig 0 obj.ext_blk_interval*i_sig];
-                ext_hdl = add_block('simulink/Logic and Bit Operations/Extract Bits', [subsystem_path '/Extract Bits'], 'MakeNameUnique', 'on', 'Position', ext_pos);
-                ext_name = get_param(ext_hdl, 'Name');
-                % 添加 Conversion Block 并配置其属性
-                conversion_pos = ext_pos + [150 0 150 0];
-                conversion_hdl = add_block('simulink/Signal Attributes/Data Type Conversion', [subsystem_path '/Data Type Conversion'], 'ConvertRealWorld', 'Stored Integer (SI)', 'MakeNameUnique', 'on', 'Position', conversion_pos);
-                conversion_name = get_param(conversion_hdl, 'Name');
-                set_param(ext_hdl, 'bitsToExtract', 'Range of bits', 'bitIdxRange', sig_extract_str, 'outScalingMode', 'Treat bit field as an integer');
-                out_pos = get_param(get_param(conversion_hdl, 'PortHandles').Outport(1), 'Position'); 
-                outport_pos =  [out_pos(1)+170, out_pos(2)-7, out_pos(1)+200, out_pos(2)+7];
-                add_block('simulink/Sinks/Out1', [subsystem_path '/' sig_name], 'Name', sig_name, 'Position', outport_pos)
-                % 添加连线
-                add_line(subsystem_path, 'canframe_split/1', [ext_name '/1'], 'autorouting','on'); 
-                add_line(subsystem_path, [ext_name '/1'], [conversion_name '/1'], 'autorouting','on'); 
-                add_line(subsystem_path, [conversion_name '/1'], [sig_name '/1'], 'autorouting','on');
-            end
-            %% 配置 cantx preprocess subsystem 缩放大小
-            set_param(subsystem_path, 'ZoomFactor', '100')
-            set_param(subsystem_path, 'TreatAsAtomicUnit', 'on', 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name')
-        end
-
-        function system_hdl = add_sig_postpocess_subsystem(obj, subsystem_path)
-            %% 添加 subsystem
+        function system_hdl = add_normal_main_subsystem(obj, subsystem_path, model_info)
+            %% 添加 main subsystem
             system_hdl = add_block('simulink/Ports & Subsystems/Subsystem', subsystem_path);
-            %% 删除原有的 in out line
+            % 删除原有的 in out line
             del_in_hdl = getSimulinkBlockHandle([subsystem_path '/In1']);
             del_out_hdl = getSimulinkBlockHandle([subsystem_path '/Out1']);
             del_line_hdl = get_param(del_in_hdl, 'LineHandles');
             delete_block([del_in_hdl, del_out_hdl]);
             delete_line(del_line_hdl.Outport(1));
-            %% 批量添加 sig subsystem
-            for i_sig = 1:length(obj.can_info.Row)
-                sig_info = obj.can_info(i_sig,:);
-                sig_name = sig_info.Row{1};
-                sig_sub_path = [subsystem_path '/' sig_name '_subsystem'];
-                sig_sub_pos = [obj.sig_sub_base_pos(1), obj.sig_sub_base_pos(2) + i_sig * obj.sig_sub_interval, obj.sig_sub_base_pos(3), obj.sig_sub_base_pos(4) + i_sig * obj.sig_sub_interval];
-                % 添加 sig subsystem
-                obj.add_sig_subsystem(sig_sub_path, sig_info);
-                set_param(sig_sub_path, 'Position', sig_sub_pos);
-                % 配置 sig subsystem 端口
-                obj.add_subsystem_port(sig_sub_path);
+            %% 添加 process subsystem
+            msg_info = model_info.detail;
+            ref_pos = obj.normal_sub_base_pos;
+            ref_delata = 0;
+            for i_sig = 1:length(msg_info.Row)
+                signal_info = msg_info(i_sig,:);
+                iflayer_sub_path = [subsystem_path '/IFLayer_Receive_Write_' char(signal_info.("Signal Index"))];
+                obj.add_iflayer_subsystem(iflayer_sub_path, signal_info);   
+                receive_254_path = [subsystem_path '/2-5-4Receive_' char(signal_info.("Signal Index"))];
+                obj.add_receive_254_subsystem(receive_254_path, signal_info);
+                select_311_path = [subsystem_path '/Select_Input_' char(signal_info.("Signal Index"))];
+                obj.add_select_311_subsystem(select_311_path, signal_info);
+
+                iflayer_sub_pos = ref_pos + [0 100+ref_delata 0 100+ref_delata];
+                ref_pos = iflayer_sub_pos;
+                receive_254_port_num = length(get_param(receive_254_path, 'PortHandles').Inport);
+                if receive_254_port_num == 2
+                    receive_254_pos = iflayer_sub_pos + [700 0 700 0];
+                    select_311_pos = receive_254_pos + [700 0 700 0];
+                    ref_delata = 0;
+                elseif receive_254_port_num == 4
+                    receive_254_pos = iflayer_sub_pos + [700 1 700 69];
+                    select_311_pos = receive_254_pos + [700 2 700 3];
+                    ref_delata = 70;
+                end
+                set_param(iflayer_sub_path, 'Position', iflayer_sub_pos);
+                set_param(receive_254_path, 'Position', receive_254_pos);
+                set_param(select_311_path, 'Position', select_311_pos);
+
+                obj.add_line_between_subsystem(iflayer_sub_path, receive_254_path);
+                obj.add_line_between_subsystem(receive_254_path, select_311_path);
+
+                obj.add_subsystem_inport(iflayer_sub_path);
+                obj.add_subsystem_inport(receive_254_path);
+                obj.add_subsystem_outport(select_311_path);
             end
-            %% 配置 cantx postprocess subsystem 缩放大小
-            set_param(subsystem_path, 'ZoomFactor', '100')
-            set_param(subsystem_path, 'TreatAsAtomicUnit', 'on', 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name')
         end
 
-        function system_hdl = add_sig_subsystem(obj, subsystem_path, sig_info)
-            %% 通过表格判读添加 sig subsystem 类型
-            sig_name = sig_info.Row{1};
-            frame_name = sig_info.Input{1};
-            sig_invalid_name = ['can_gmlan_rx_invalid_' frame_name];
-            inv_name = convertStringsToChars(sig_info.('Invalid Status'));
-            system_hdl = add_block(obj.lib_error_sub, subsystem_path);
-            %% 修改 can_rx 名
-            obj.modify_port_line_name('In', subsystem_path, 'can_rx', frame_name)   
-            %% 修改 can gmlan rx 名
-            obj.modify_port_line_name('Out', subsystem_path, 'can_gmlan_rx_xxxx', sig_name)
-            %% 修改 inv xxxx 名
-            obj.modify_port_line_name('In', subsystem_path, 'inv_xxxx', inv_name)
-            %% 修改 can gmlan rx invalid xxxx 名
-            obj.modify_port_line_name('Out', subsystem_path, 'can_gmlan_rx_invalid_xxxx', sig_invalid_name)
-            %% 修改 K_CAN_GMLAN_RX_DEFAULT_xxxx 名 
-            set_param([subsystem_path '/K_CAN_GMLAN_RX_DEFAULT_xxxx'], 'Name', sig_info.('Error Indicator Value'), 'Value', sig_info.('Error Indicator Value'));
-            %% 配置上下限
-            % max_value = strcat("(", sig_info.Max, "- (", sig_case_info.Offset, ")) / (", sig_case_info.Factor, ")");
-            % min_value = strcat("(", sig_info.Min, "- (", sig_case_info.Offset, ")) / (", sig_case_info.Factor, ")");
-            max_value = sig_info.Max;
-            min_value = sig_info.Min;
-            set_param([subsystem_path '/Max'], 'Value', max_value);
-            set_param([subsystem_path '/Min'], 'Value', min_value);
-            %% 配置 sig subsystem 缩放大小及代码生成格式
-            set_param(subsystem_path, 'ZoomFactor', '100')
-            set_param(subsystem_path, 'TreatAsAtomicUnit', 'on', 'RTWSystemCode', 'Reusable function', 'RTWFcnNameOpts', 'Use subsystem name')
+        function system_hdl = add_iflayer_subsystem(~, subsystem_path, signal_info)
+            error_num = randi([0,2]);
+            if error_num == 0
+                system_hdl = add_block('template/IFLayer_Receive_Write_xxx', subsystem_path);
+            elseif error_num == 1
+                system_hdl = add_block('template/IFLayer_Receive_Write_xxx(invalid1)', subsystem_path);
+            elseif error_num == 2
+                system_hdl = add_block('template/IFLayer_Receive_Write_xxx(invalid2)', subsystem_path);
+            end
+            set_param([subsystem_path '/inv_xxxx'], 'Name', signal_info.("Invalid Status"));
+            set_param([subsystem_path '/can_gmlan_rx_invalid_xxxx'], 'Name', signal_info.("Receive Parameter Invalid Status"));
+            set_param([subsystem_path '/can_gmlan_rx_xxxx'], 'Name', signal_info.("Receive Parameter"));
+            set_param([subsystem_path '/K_CAN_GMLAN_RX_INVALID_SELECT'], 'Value', "K_CAN_GMLAN_RX_INVALID_SELECT");
+            set_param([subsystem_path '/K_CAN_GMLAN_RX_DEFAULT_xxxx'], 'Name', signal_info.("Error Indicator Value"), 'Value', signal_info.("Error Indicator Value"));
+            set_param([subsystem_path '/GetData'], 'MaskValues', {signal_info.("Signal Index"); signal_info.("Data Type")});
+            set_param([subsystem_path '/Max'], 'Value', signal_info.Max);
+            set_param([subsystem_path '/Min'], 'Value', signal_info.Min);
+        end
+
+        function system_hdl = add_receive_254_subsystem(~, subsystem_path, signal_info)
+            type_num = double(signal_info.("2-5-4 Requeset Paramter Select Flag"));
+            if type_num == 1
+                system_hdl = add_block('template/2-5-4receive_equal', subsystem_path);
+            elseif type_num == 2
+                system_hdl = add_block('template/2-5-4receive_slect', subsystem_path);
+                set_param([subsystem_path '/can_J1939_rx_invalid_xxxx'], 'Name', signal_info.("Receive Parameter Invalid Status 2"));
+                set_param([subsystem_path '/can_J1939_rx_xxxx'], 'Name', signal_info.("Receive Parameter 2"));
+                set_param([subsystem_path '/PLCANC_APCNTL_RQST_SEL_J1939'], 'Value', "PLCANC_APCNTL_RQST_SEL_J1939");
+                set_param([subsystem_path '/PLCANC_APCNTL_RQST_SEL_GMLAN'], 'Value', "PLCANC_APCNTL_RQST_SEL_GMLAN");
+                set_param([subsystem_path '/K_CAN_RX_SEL_XXX'], 'Name', signal_info.("K_CAN_RX_SEL_XXX"), 'Value', signal_info.("K_CAN_RX_SEL_XXX"));
+            end
+            set_param([subsystem_path '/can_gmlan_rx_invalid_xxxx'], 'Name', signal_info.("Receive Parameter Invalid Status"));
+            set_param([subsystem_path '/can_gmlan_rx_xxxx'], 'Name', signal_info.("Receive Parameter"));
+            set_param([subsystem_path '/can_invalid_can_rx_xxxx'], 'Name', signal_info.("RxSel Parameter Invalid Status"));
+            set_param([subsystem_path '/can_rx_xxxx'], 'Name', signal_info.("RxSel Parameter"));
+        end
+
+        function system_hdl = add_select_311_subsystem(~, subsystem_path, signal_info)
+            type_num = double(signal_info.("3-1-1 Requeset Paramter Select Flag"));
+            if type_num == 1
+                system_hdl = add_block('template/Select_Input_1', subsystem_path);
+                set_param([subsystem_path '/K_CAN_RQST_SEL_XXX'], 'Name', signal_info.("K_CAN_RQST_SEL_XXX"), 'Value', signal_info.("K_CAN_RQST_SEL_XXX"));
+            elseif type_num == 2
+                system_hdl = add_block('template/Select_Input_2', subsystem_path);
+                set_param([subsystem_path '/K_CAN_RQST_SEL_XXX'], 'Name', signal_info.("K_CAN_RQST_SEL_XXX"), 'Value', signal_info.("K_CAN_RQST_SEL_XXX"));
+                set_param([subsystem_path '/K_RQST_DRCT_XXX'], 'Name', signal_info.("K_RQST_DRCT_XXX"), 'Value', signal_info.("K_RQST_DRCT_XXX"));
+            elseif type_num == 3
+                system_hdl = add_block('template/Select_Input_3', subsystem_path);
+            end
+
+            set_param([subsystem_path '/can_invalid_can_rx_xxx'], 'Name', signal_info.("RxSel Parameter Invalid Status"));
+            set_param([subsystem_path '/can_rx_xxx'], 'Name', signal_info.("RxSel Parameter"));
+            set_param([subsystem_path '/can_invalid_can_rqst_xxx'], 'Name', signal_info.("can_invalid_can_rqst_xxx"));
+            set_param([subsystem_path '/can_rqst_xxx'], 'Name', signal_info.("can_rqst_xxx"));
         end
 
         function gen_normal_code(obj, save_path, model_name)
@@ -221,17 +196,8 @@ classdef autoMBDCanRx < autoMBD
             sldd_path = [save_path '\' model_name '.sldd'];
             sldd_obj = Simulink.data.dictionary.open(sldd_path);
             design_data = getSection(sldd_obj,'Design Data');
-            %% 添加Cali
-            obj.add_parameter_to_sldd(obj.can_info, design_data, "ExportedGlobal");
-            %% 绑定Can Frame信号
-            sig_prepocess_subsystem_name = [model_name '/' model_name '_main/' model_name '_preprocess'];
-            obj.add_outport_canframe_resolve_on_line(sig_prepocess_subsystem_name, obj.can_info, design_data, "Model default")
-            sig_main_subsystem_name = [model_name '/' model_name '_main'];
-            obj.add_inport_dd_resolve_on_line(sig_main_subsystem_name, design_data, 'ImportedExtern');
-            obj.add_outport_dd_resolve_on_line(sig_main_subsystem_name, design_data, 'ExportedGlobal');
-            %% 修改初始值
-            init_subsystem_path = [model_name '/' model_name '_init'];
-            obj.modify_init_value(init_subsystem_path);
+            %% 绑定信号
+            obj.add_system_parameter(model_name, design_data, 'ImportedExtern');
             %% 保存并关闭模型
             save_system(model_name);
             sldd_obj.saveChanges()
@@ -241,13 +207,5 @@ classdef autoMBDCanRx < autoMBD
             obj.clear_all();
         end
 
-        function modify_init_value(obj, subsystem_path)
-            constant_names = get_param(find_system(subsystem_path, 'SearchDepth', 1, 'BlockType', 'Constant'), 'Name');
-            for i_name = 1:length(constant_names)
-                sig_name = constant_names{i_name}(1:end-6);
-                init_value = obj.ram_sht_tbl.("ECM ON")(sig_name);
-                set_param([subsystem_path '/' constant_names{i_name}], 'Value', init_value);
-            end
-        end
     end
 end
