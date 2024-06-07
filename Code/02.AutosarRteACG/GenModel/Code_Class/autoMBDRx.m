@@ -42,8 +42,8 @@ classdef autoMBDRx < autoMBD
             %% 配置 rx normal model 代码导出方式 sldd 及 缩放率
             set_param(normal_mdl, 'Datadictionary',[model_name '.sldd'])
             %% 添加 rx indfunc call
-            indfunc_call_path = [model_name '/' model_name '_indfunc_call'];
-            obj.add_indfunc_call_block(indfunc_call_path, model_info);
+            indfunc_call_path = [model_name '/' model_name '_ind'];
+            obj.add_indfunc_call_subsystem(indfunc_call_path, model_info);
             set_param(indfunc_call_path, 'Position', obj.indfunc_call_base_pos);
             %% 添加 rx normal subsystem
             normal_main_path = [model_name '/' model_name '_main'];
@@ -63,10 +63,20 @@ classdef autoMBDRx < autoMBD
             obj.clear_all();
         end
 
-        function blk_hdl = add_indfunc_call_block(~, block_path, model_info)
-            blk_hdl = add_block('user_lib/IndFunc_Call', block_path);
+        function system_hdl = add_indfunc_call_subsystem(~, subsystem_path, model_info)
+            %% 添加 ind subsystem
+            system_hdl = add_block('simulink/Ports & Subsystems/Subsystem', subsystem_path);
+            % 删除原有的 in out line
+            del_in_hdl = getSimulinkBlockHandle([subsystem_path '/In1']);
+            del_out_hdl = getSimulinkBlockHandle([subsystem_path '/Out1']);
+            del_line_hdl = get_param(del_in_hdl, 'LineHandles');
+            delete_block([del_in_hdl, del_out_hdl]);
+            delete_line(del_line_hdl.Outport(1));
+            %% 添加 main subsystem
             msg_summary = model_info.summary;
             msg_detail = model_info.detail;
+            block_path = [subsystem_path '/IndFunc_Call_'  char(msg_summary.("FrameID"))];
+            add_block('user_lib/IndFunc_Call', block_path);
             mask_value{1} = 'Test';
             mask_value{2} = msg_summary.("FrameID");
             table_str = '';
