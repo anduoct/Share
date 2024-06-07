@@ -173,12 +173,22 @@ classdef autoMBD < handle
             end
         end
 
-        function add_system_parameter(obj, subsystem_path, design_data, storage_class)
-            system_param_name_list = unique(get_param(find_system(subsystem_path,'regexp','on', 'BlockType', 'Constant', 'Name', '^K_' ), 'Name'));
+        function add_constant_resolve(obj, subsystem_path, design_data, storage_class)
+            cali_name_list = unique(get_param(find_system(subsystem_path,'regexp','on', 'BlockType', 'Constant', 'Name', '^K_' ), 'Name'));
             sldd_param_name_list = {find(design_data,'-value','-class','Simulink.Parameter').Name}';
-            param_name_list = setdiff(system_param_name_list, intersect(system_param_name_list, sldd_param_name_list));
+            param_name_list = setdiff(cali_name_list, intersect(cali_name_list, sldd_param_name_list));
             for i_name = 1:length(param_name_list)
-                obj.add_dd_parameter_to_sldd(param_name_list(param_name_list), design_data, storage_class)
+                param_name = param_name_list{i_name};
+                if ~ismember(param_name, obj.rom_sht_tbl.Row)
+                    continue
+                end
+                inter_name = obj.rom_sht_tbl.Label(param_name);
+                hdls = find_system(subsystem_path,'regexp','on', 'BlockType', 'Constant', 'Name', param_name);
+                for i_hdl = 1:length(hdls)
+                    hdl = hdls{i_hdl};
+                    set_param(hdl, 'Value', inter_name);
+                end
+                obj.add_dd_parameter_to_sldd(param_name, design_data, storage_class)
             end
         end
 
@@ -209,6 +219,7 @@ classdef autoMBD < handle
             param = Simulink.Parameter;
             param.CoderInfo.StorageClass = storage_class;
             param_info = obj.rom_sht_tbl(param_name,:);
+            inter_name = param_info.Label;
             if strcmp(param_info.Attribute, "UB")
                 param.DataType = strcat("fixdt(0, 8, ", param_info.numerator , "/" , param_info.denominator, ")");
             elseif strcmp(param_info.Attribute, "UW")
@@ -223,7 +234,7 @@ classdef autoMBD < handle
                 param.DataType = strcat("fixdt(1, 32, ", param_info.numerator , "/" , param_info.denominator, ")");
             end
             param.Value = str2double(param_info.('Initial（Internal）'));
-            addEntry(design_data, param_name, param)
+            addEntry(design_data, inter_name, param)
         end
 
         function add_outport_canframe_resolve_on_line(obj, subsystem_path, caninfo, design_data, storage_class)

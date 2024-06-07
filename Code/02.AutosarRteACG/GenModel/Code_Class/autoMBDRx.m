@@ -2,6 +2,8 @@ classdef autoMBDRx < autoMBD
     properties
         model_info
         can_sldd
+        getdata_tlc
+        indfunccall_tlc
         indfunc_call_base_pos
         normal_main_base_pos
         normal_main_interval
@@ -11,6 +13,8 @@ classdef autoMBDRx < autoMBD
         function obj = autoMBDRx(ram_sht_tbl, rom_sht_tbl)
             obj = obj@autoMBD(ram_sht_tbl, rom_sht_tbl);
             obj.can_sldd = which('canrx.sldd');
+            obj.getdata_tlc = which('tlc\GetData.tlc');
+            obj.indfunccall_tlc = which('tlc\IndFunc.tlc');
             obj.indfunc_call_base_pos = [240 0 650 70];
             obj.normal_main_base_pos = [240 110 650 130];
             obj.normal_main_interval = 40;
@@ -30,6 +34,8 @@ classdef autoMBDRx < autoMBD
             addpath(save_path)
             sldd_path = [save_path '\' model_name '.sldd'];
             copyfile(obj.can_sldd, sldd_path);
+            copyfile(obj.getdata_tlc, save_path);
+            copyfile(obj.indfunccall_tlc, save_path);
             %% 新建并打开 rx normal model
             normal_mdl = new_system(model_name);
             open_system(normal_mdl);
@@ -142,7 +148,7 @@ classdef autoMBDRx < autoMBD
             set_param([subsystem_path '/can_gmlan_rx_invalid_xxxx'], 'Name', signal_info.("Receive Parameter Invalid Status"));
             set_param([subsystem_path '/can_gmlan_rx_xxxx'], 'Name', signal_info.("Receive Parameter"));
             set_param([subsystem_path '/K_CAN_GMLAN_RX_INVALID_SELECT'], 'Value', "K_CAN_GMLAN_RX_INVALID_SELECT");
-            set_param([subsystem_path '/K_CAN_GMLAN_RX_DEFAULT_xxxx'], 'Name', signal_info.("Error Indicator Value"), 'Value', signal_info.("Error Indicator Value"));
+            set_param([subsystem_path '/K_CAN_GMLAN_RX_DEFAULT_xxxx'], 'Name', signal_info.("Error Indicator Value"));
             set_param([subsystem_path '/GetData'], 'MaskValues', {signal_info.("Signal Index"); signal_info.("Data Type")});
             set_param([subsystem_path '/Max'], 'Value', signal_info.Max);
             set_param([subsystem_path '/Min'], 'Value', signal_info.Min);
@@ -158,7 +164,7 @@ classdef autoMBDRx < autoMBD
                 set_param([subsystem_path '/can_J1939_rx_xxxx'], 'Name', signal_info.("Receive Parameter 2"));
                 set_param([subsystem_path '/PLCANC_APCNTL_RQST_SEL_J1939'], 'Value', "PLCANC_APCNTL_RQST_SEL_J1939");
                 set_param([subsystem_path '/PLCANC_APCNTL_RQST_SEL_GMLAN'], 'Value', "PLCANC_APCNTL_RQST_SEL_GMLAN");
-                set_param([subsystem_path '/K_CAN_RX_SEL_XXX'], 'Name', signal_info.("K_CAN_RX_SEL_XXX"), 'Value', signal_info.("K_CAN_RX_SEL_XXX"));
+                set_param([subsystem_path '/K_CAN_RX_SEL_XXX'], 'Name', signal_info.("K_CAN_RX_SEL_XXX"));
             end
             set_param([subsystem_path '/can_gmlan_rx_invalid_xxxx'], 'Name', signal_info.("Receive Parameter Invalid Status"));
             set_param([subsystem_path '/can_gmlan_rx_xxxx'], 'Name', signal_info.("Receive Parameter"));
@@ -170,11 +176,11 @@ classdef autoMBDRx < autoMBD
             type_num = double(signal_info.("3-1-1 Requeset Paramter Select Flag"));
             if type_num == 1
                 system_hdl = add_block('template/Select_Input_1', subsystem_path);
-                set_param([subsystem_path '/K_CAN_RQST_SEL_XXX'], 'Name', signal_info.("K_CAN_RQST_SEL_XXX"), 'Value', signal_info.("K_CAN_RQST_SEL_XXX"));
+                set_param([subsystem_path '/K_CAN_RQST_SEL_XXX'], 'Name', signal_info.("K_CAN_RQST_SEL_XXX"));
             elseif type_num == 2
                 system_hdl = add_block('template/Select_Input_2', subsystem_path);
-                set_param([subsystem_path '/K_CAN_RQST_SEL_XXX'], 'Name', signal_info.("K_CAN_RQST_SEL_XXX"), 'Value', signal_info.("K_CAN_RQST_SEL_XXX"));
-                set_param([subsystem_path '/K_RQST_DRCT_XXX'], 'Name', signal_info.("K_RQST_DRCT_XXX"), 'Value', signal_info.("K_RQST_DRCT_XXX"));
+                set_param([subsystem_path '/K_CAN_RQST_SEL_XXX'], 'Name', signal_info.("K_CAN_RQST_SEL_XXX"));
+                set_param([subsystem_path '/K_RQST_DRCT_XXX'], 'Name', signal_info.("K_RQST_DRCT_XXX"));
             elseif type_num == 3
                 system_hdl = add_block('template/Select_Input_3', subsystem_path);
             end
@@ -196,8 +202,11 @@ classdef autoMBDRx < autoMBD
             sldd_path = [save_path '\' model_name '.sldd'];
             sldd_obj = Simulink.data.dictionary.open(sldd_path);
             design_data = getSection(sldd_obj,'Design Data');
-            %% 绑定信号
-            obj.add_system_parameter(model_name, design_data, 'ImportedExtern');
+            %% 绑定信号及cali
+            obj.add_inport_dd_resolve_on_line(model_name, design_data, 'ImportedExtern');
+            obj.add_outport_dd_resolve_on_line(model_name, design_data, 'ExportedGlobal');
+            obj.add_subsystem_outport_dd_resolve(model_name, design_data, 'ExportedGlobal');
+            obj.add_constant_resolve(model_name, design_data, 'ImportedExtern');
             %% 保存并关闭模型
             save_system(model_name);
             sldd_obj.saveChanges()
@@ -205,6 +214,17 @@ classdef autoMBDRx < autoMBD
             close_system(model_name);
             %% 关闭并清除所有
             obj.clear_all();
+        end
+
+        function add_subsystem_outport_dd_resolve(obj, subsystem_path,  design_data, storage_class)
+            iflayer_subsystem_names = get_param(find_system(subsystem_path,'regexp','on', 'SearchDepth', 2, 'Name', '^IFLayer_Receive_Write_'), 'Name');
+            for i_sub = 1:length(iflayer_subsystem_names)
+                obj.add_outport_dd_resolve_on_line([subsystem_path '/' subsystem_path '_main/' iflayer_subsystem_names{i_sub}], design_data, storage_class)
+            end
+            receive_subsystem_names = get_param(find_system(subsystem_path,'regexp','on', 'SearchDepth', 2, 'Name', '^2-5-4Receive_'), 'Name');
+            for i_sub = 1:length(iflayer_subsystem_names)
+                obj.add_outport_dd_resolve_on_line([subsystem_path '/' subsystem_path '_main/' receive_subsystem_names{i_sub}], design_data, storage_class)
+            end
         end
 
     end

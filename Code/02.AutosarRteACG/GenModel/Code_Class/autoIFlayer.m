@@ -116,13 +116,13 @@ classdef autoIFlayer < handle
 
 
         function gen_model(obj)
-%             for i_key = keys(obj.tx_normal_dict)
-%                 model_path = obj.output_model_path;
-%                 model_name = ['cantx_' i_key{1}];
-%                 model_info = obj.tx_normal_dict(i_key{1});
-%                 per_save_path = [model_path '\' model_name];
-%                 obj.mbd_cantx.gen_normal_model(per_save_path, model_name, model_info)
-%             end
+            for i_key = keys(obj.tx_normal_dict)
+                model_path = obj.output_model_path;
+                model_name = ['cantx_' i_key{1}];
+                model_info = obj.tx_normal_dict(i_key{1});
+                per_save_path = [model_path '\' model_name];
+                obj.mbd_cantx.gen_normal_model(per_save_path, model_name, model_info)
+            end
             for i_key = keys(obj.rx_normal_dict)
                 model_path = obj.output_model_path;
                 model_name = ['canrx_0x' i_key{1}];
@@ -133,12 +133,12 @@ classdef autoIFlayer < handle
         end
 
         function gen_code(obj)
-%             for i_key = keys(obj.tx_normal_dict)
-%                 model_path = obj.output_model_path;
-%                 model_name = ['cantx_' i_key{1}];
-%                 per_save_path = [model_path '\' model_name];
-%                 obj.mbd_cantx.gen_normal_code(per_save_path, model_name);
-%             end
+            for i_key = keys(obj.tx_normal_dict)
+                model_path = obj.output_model_path;
+                model_name = ['cantx_' i_key{1}];
+                per_save_path = [model_path '\' model_name];
+                obj.mbd_cantx.gen_normal_code(per_save_path, model_name);
+            end
             for i_key = keys(obj.rx_normal_dict)
                 model_path = obj.output_model_path;
                 model_name = ['canrx_0x' i_key{1}];
