@@ -160,6 +160,7 @@ classdef autoMBDRx < autoMBD
             set_param([subsystem_path '/K_CAN_GMLAN_RX_INVALID_SELECT'], 'Value', "K_CAN_GMLAN_RX_INVALID_SELECT");
             set_param([subsystem_path '/K_CAN_GMLAN_RX_DEFAULT_xxxx'], 'Name', signal_info.("Error Indicator Value"));
             set_param([subsystem_path '/GetData'], 'MaskValues', {signal_info.("Signal Index"); signal_info.("Data Type")});
+            set_param([subsystem_path '/Data Type Conversion'], 'OutDataTypeStr', signal_info.("Data Type"));
             set_param([subsystem_path '/Max'], 'Value', signal_info.Max);
             set_param([subsystem_path '/Min'], 'Value', signal_info.Min);
         end
@@ -215,7 +216,7 @@ classdef autoMBDRx < autoMBD
             %% 绑定信号及cali
             obj.add_inport_dd_resolve_on_line(model_name, design_data, 'ImportedExtern');
             obj.add_outport_dd_resolve_on_line(model_name, design_data, 'ExportedGlobal');
-            obj.add_subsystem_outport_dd_resolve(model_name, design_data, 'ExportedGlobal');
+            obj.add_subsystem_external_resolve(model_name, design_data);
             obj.add_constant_resolve(model_name, design_data, 'ImportedExtern');
             %% 保存并关闭模型
             save_system(model_name);
@@ -226,16 +227,46 @@ classdef autoMBDRx < autoMBD
             obj.clear_all();
         end
 
-        function add_subsystem_outport_dd_resolve(obj, subsystem_path,  design_data, storage_class)
+        function add_subsystem_external_resolve(obj, subsystem_path,  design_data)
             iflayer_subsystem_names = get_param(find_system(subsystem_path,'regexp','on', 'SearchDepth', 2, 'Name', '^IFLayer_Receive_Write_'), 'Name');
             for i_sub = 1:length(iflayer_subsystem_names)
-                obj.add_outport_dd_resolve_on_line([subsystem_path '/' subsystem_path '_main/' iflayer_subsystem_names{i_sub}], design_data, storage_class)
+                obj.add_outport_dd_resolve_on_line([subsystem_path '/' subsystem_path '_main/' iflayer_subsystem_names{i_sub}], design_data, 'ExportedGlobal')
+
+                cov_path = [subsystem_path '/' subsystem_path '_main/' iflayer_subsystem_names{i_sub} '/Data Type Conversion'];
+                data_type = get_param(cov_path, 'OutDataTypeStr');
+                temp_cell = split(iflayer_subsystem_names{i_sub}, '_rx_');
+
+                min_path = [subsystem_path '/' subsystem_path '_main/' iflayer_subsystem_names{i_sub} '/Min'];
+                min_value = get_param(min_path, 'Value');
+                min_name = ['D_' upper(temp_cell{2}) '_MIN'];
+                set_param(min_path, 'Value', min_name);
+                min_param = Simulink.Parameter;
+                min_param.CoderInfo.StorageClass = 'Custom';
+                min_param.CoderInfo.CustomStorageClass = "Define";
+                min_param.DataType = data_type;
+                min_param.Value = str2double(min_value);
+                addEntry(design_data, min_name, min_param)
+
+                max_path = [subsystem_path '/' subsystem_path '_main/' iflayer_subsystem_names{i_sub} '/Max'];
+                max_value = get_param(max_path, 'Value');
+                max_name = ['D_' upper(temp_cell{2}) '_MAX'];
+                set_param(max_path, 'Value', max_name);
+                max_param = Simulink.Parameter;
+                max_param.CoderInfo.StorageClass = 'Custom';
+                max_param.CoderInfo.CustomStorageClass = "Define";
+                max_param.DataType = data_type;
+                max_param.Value = str2double(max_value);
+                addEntry(design_data, max_name, max_param)
             end
+            
+
             receive_subsystem_names = get_param(find_system(subsystem_path,'regexp','on', 'SearchDepth', 2, 'Name', '^2-5-4Receive_'), 'Name');
             for i_sub = 1:length(iflayer_subsystem_names)
-                obj.add_outport_dd_resolve_on_line([subsystem_path '/' subsystem_path '_main/' receive_subsystem_names{i_sub}], design_data, storage_class)
+                obj.add_outport_dd_resolve_on_line([subsystem_path '/' subsystem_path '_main/' receive_subsystem_names{i_sub}], design_data, 'ExportedGlobal')
             end
         end
+
+  
 
     end
 end
